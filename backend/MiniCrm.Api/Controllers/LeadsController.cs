@@ -52,7 +52,18 @@ public class LeadsController(LeadService leads) : ControllerBase
 
     [HttpPost("{id:int}/status")]
     public async Task<ActionResult<LeadResponse>> ChangeStatus(int id, ChangeStatusRequest request) =>
-        ToResponse(await leads.ChangeStatus(id, request.Status!.Value));
+        ToResponse(await leads.ChangeStatus(id, request.Status!.Value, request.SimulateServerError));
+
+    // The lead's outbound events with every attempt: what was sent and what the tracker answered.
+    [HttpGet("{id:int}/events")]
+    public async Task<ActionResult<List<TrackerEventResponse>>> GetEvents(int id)
+    {
+        var events = await leads.GetEvents(id);
+        if (events is null)
+            return NotFound();
+
+        return events.Select(TrackerEventResponse.From).ToList();
+    }
 
     private ActionResult<LeadResponse> ToResponse(LeadResult result)
     {

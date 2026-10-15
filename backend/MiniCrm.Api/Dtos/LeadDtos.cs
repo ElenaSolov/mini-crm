@@ -67,6 +67,10 @@ public class ChangeStatusRequest
 {
     [Required]
     public LeadStatus? Status { get; set; }
+
+    // Only for testing retries: the first send of the conversion event gets
+    // "simulate":"server_error", so the tracker answers 500 and the worker retries.
+    public bool SimulateServerError { get; set; }
 }
 
 public record LeadResponse(
