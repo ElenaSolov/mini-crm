@@ -34,6 +34,9 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 builder.Services.AddScoped<LeadService>();
+// RedactLoggedHeaders: with Trace logging on, .NET would print the API key in the logs.
+builder.Services.AddHttpClient<TrackerClient>(client => client.Timeout = TimeSpan.FromSeconds(10))
+    .RedactLoggedHeaders(["Authorization"]);
 
 var app = builder.Build();
 
