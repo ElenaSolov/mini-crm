@@ -29,7 +29,6 @@ Secrets are never committed. Copy `.env.example` to `.env` and fill in the value
 
 | Variable | Required | Description |
 |---|---|---|
-| `Tracker__BaseUrl` | yes | Tracker API base URL |
 | `Tracker__ApiKey` | yes | Your personal tracker API key |
 | `ConnectionStrings__Default` | no | SQL Server connection string (defaults to LocalDB) |
 
