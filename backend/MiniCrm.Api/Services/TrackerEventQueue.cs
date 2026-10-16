@@ -26,12 +26,12 @@ public class TrackerEventQueue(AppDbContext db)
             if (existing is null)
                 db.TrackerEvents.Add(CreateEvent(lead, endpoint, simulateServerError, now));
             else
-                existing.Requeue(simulateServerError, now);
+                Requeue(existing, lead, endpoint, simulateServerError, now);
         }
     }
 
-    // Renders the URL and body now (a snapshot), so retries send the same request
-    // even if the lead or the endpoint is edited later.
+    // Renders the URL and body now (a snapshot), so automatic retries send the same
+    // request even if the lead or the endpoint is edited later.
     private static TrackerEvent CreateEvent(Lead lead, TrackerEndpoint endpoint, bool simulateServerError, DateTimeOffset now)
     {
         var values = MacroRenderer.ValuesFor(lead, endpoint.Name, now);
@@ -50,11 +50,30 @@ public class TrackerEventQueue(AppDbContext db)
             SimulateServerError = simulateServerError
         };
         trackerEvent.Queue(now);
-
-        // E.g. "amount": {amount} with no amount. Keep the event, so the reason is visible.
-        if (trackerEvent.Body is not null && !MacroRenderer.IsValidJson(trackerEvent.Body))
-            trackerEvent.MarkFailed("The rendered body is not valid JSON. Check the endpoint's body template.");
+        FailIfBodyIsInvalid(trackerEvent);
 
         return trackerEvent;
+    }
+
+    // "Convert again": the URL and body are rendered again from the current endpoint
+    // and lead, so a fixed URL or email is used. The event_id and occurred_at stay the
+    // same, so the tracker still sees the same conversion.
+    private static void Requeue(TrackerEvent trackerEvent, Lead lead, TrackerEndpoint endpoint, bool simulateServerError, DateTimeOffset now)
+    {
+        var values = MacroRenderer.ValuesFor(lead, endpoint.Name, trackerEvent.OccurredAt);
+        values["event_id"] = trackerEvent.EventId;
+
+        var url = MacroRenderer.RenderUrl(endpoint.UrlTemplate, values);
+        var body = endpoint.BodyTemplate is null ? null : MacroRenderer.RenderBody(endpoint.BodyTemplate, values);
+
+        trackerEvent.Requeue(url, body, simulateServerError, now);
+        FailIfBodyIsInvalid(trackerEvent);
+    }
+
+    // E.g. "amount": {amount} with no amount. Keep the event, so the reason is visible.
+    private static void FailIfBodyIsInvalid(TrackerEvent trackerEvent)
+    {
+        if (trackerEvent.Body is not null && !MacroRenderer.IsValidJson(trackerEvent.Body))
+            trackerEvent.MarkFailed("The rendered body is not valid JSON. Check the endpoint's body template.");
     }
 }

@@ -1,8 +1,8 @@
 namespace MiniCrm.Api.Models;
 
 // An outbound event (the outbox row). It is saved together with the status
-// change, and the worker sends it later. The URL and body are rendered once,
-// when the event is created, so every retry sends exactly the same request.
+// change, and the worker sends it later. The URL and body are rendered when the
+// event is queued, so every automatic retry sends exactly the same request.
 public class TrackerEvent
 {
     public const int MaxAttempts = 5;
@@ -46,13 +46,16 @@ public class TrackerEvent
         LastError = null;
     }
 
-    // "Convert again": send the same event (same event_id, URL and body) once more.
-    // A pending event is already on its way, so it is left alone.
-    public void Requeue(bool simulateServerError, DateTimeOffset now)
+    // "Convert again": send the same event (same event_id) once more, with a freshly
+    // rendered URL and body. A pending event is already on its way (the worker may be
+    // sending it right now), so it is left alone.
+    public void Requeue(string url, string? body, bool simulateServerError, DateTimeOffset now)
     {
         if (Status == TrackerEventStatus.Pending)
             return;
 
+        Url = url;
+        Body = body;
         Queue(now);
         SimulateServerError = simulateServerError;
     }

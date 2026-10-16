@@ -113,21 +113,24 @@ public class TrackerEndpointsApiTests(ApiFactory factory) : ApiTestBase(factory)
     }
 
     [Fact]
-    public async Task Editing_after_a_conversion_does_not_change_the_saved_event()
+    public async Task Convert_again_after_editing_the_url_sends_to_the_new_url()
     {
         var lead = await CreateLead();
         await ChangeStatus(lead.Id, LeadStatusNames.Converted);
-        Factory.Tracker.Reply(HttpStatusCode.Created, """{"ok":true,"duplicate":false}""");
+        Factory.Tracker.Reply(HttpStatusCode.NotFound, """{"ok":false}""");
         await SendDueEvents();
 
-        await SavePurchase(PurchaseTemplates(url: "https://tracker.test/other", eventId: "other_{lead_id}"));
-        Factory.Tracker.Reply(HttpStatusCode.OK, """{"ok":true,"duplicate":true}""");
+        await SavePurchase(PurchaseTemplates(url: "https://tracker.test/fixed", eventId: "other_{lead_id}"));
+        Factory.Tracker.Reply(HttpStatusCode.Created, """{"ok":true,"duplicate":false}""");
         await ChangeStatus(lead.Id, LeadStatusNames.Converted); // convert again
         await SendDueEvents();
 
-        Assert.Equal(2, Factory.Tracker.Requests.Count);
-        Assert.All(Factory.Tracker.Requests, r => Assert.Equal(DefaultEndpoints.BaseUrl + "/conversions", r.Url));
-        Assert.Equal($"conv_{lead.Id}", Assert.Single(await GetEvents(lead.Id)).EventId);
+        Assert.Equal(
+            [DefaultEndpoints.BaseUrl + "/conversions", "https://tracker.test/fixed"],
+            Factory.Tracker.Requests.Select(r => r.Url));
+        var trackerEvent = Assert.Single(await GetEvents(lead.Id));
+        Assert.Equal($"conv_{lead.Id}", trackerEvent.EventId); // the event_id never changes
+        Assert.Equal(TrackerEventStatus.Sent, trackerEvent.Status);
     }
 
     [Fact]

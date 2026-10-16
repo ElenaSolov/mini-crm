@@ -126,9 +126,12 @@ public class TrackerEventRetryTests
         trackerEvent.RecordAttempt(Answer(lastStatusCode));
         var later = Now.AddMinutes(5);
 
-        trackerEvent.Requeue(simulateServerError: true, later);
+        trackerEvent.Requeue("https://tracker.test/new", """{"a":1}""", simulateServerError: true, later);
 
         Assert.Equal(TrackerEventStatus.Pending, trackerEvent.Status);
+        Assert.Equal("https://tracker.test/new", trackerEvent.Url);
+        Assert.Equal("""{"a":1}""", trackerEvent.Body);
+        Assert.Equal("conv_42", trackerEvent.EventId);
         Assert.Equal(0, trackerEvent.AttemptCount);
         Assert.Equal(later, trackerEvent.NextAttemptAt);
         Assert.Null(trackerEvent.LastError);
@@ -140,11 +143,13 @@ public class TrackerEventRetryTests
     public void Requeue_leaves_a_pending_event_alone()
     {
         var trackerEvent = PendingEvent();
+        trackerEvent.Url = "https://tracker.test/old";
         trackerEvent.RecordAttempt(Answer(500));
         var nextAttemptAt = trackerEvent.NextAttemptAt;
 
-        trackerEvent.Requeue(simulateServerError: true, Now.AddMinutes(5));
+        trackerEvent.Requeue("https://tracker.test/new", null, simulateServerError: true, Now.AddMinutes(5));
 
+        Assert.Equal("https://tracker.test/old", trackerEvent.Url);
         Assert.Equal(1, trackerEvent.AttemptCount);
         Assert.Equal(nextAttemptAt, trackerEvent.NextAttemptAt);
         Assert.False(trackerEvent.SimulateServerError);

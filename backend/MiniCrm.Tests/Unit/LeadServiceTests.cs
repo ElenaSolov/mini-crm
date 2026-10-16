@@ -69,24 +69,46 @@ public class LeadServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task Request_is_a_snapshot_taken_when_the_lead_converts()
+    public async Task Converting_again_renders_the_request_from_current_settings()
     {
         var lead = await SavedLead();
         await _service.ChangeStatus(lead.Id, LeadStatusNames.Converted);
         var trackerEvent = await _db.TrackerEvents.SingleAsync();
-        var bodyAtConversion = trackerEvent.Body;
-        trackerEvent.RecordAttempt(new TrackerAttempt { StatusCode = 201, AttemptedAt = DateTimeOffset.UtcNow });
+        var occurredAt = trackerEvent.OccurredAt;
+        trackerEvent.RecordAttempt(new TrackerAttempt { StatusCode = 422, AttemptedAt = DateTimeOffset.UtcNow });
         await _db.SaveChangesAsync();
 
+        var purchase = await _db.TrackerEndpoints.SingleAsync(e => e.Name == DefaultEndpoints.PurchaseName);
+        purchase.UrlTemplate = "https://tracker.test/fixed";
+        purchase.EventIdTemplate = "other_{lead_id}";
         await _service.Update(lead.Id, new SaveLeadRequest
         {
             Name = "Ann", Email = "changed@example.com", Amount = 500m, Currency = "EUR"
         });
-        await _service.ChangeStatus(lead.Id, LeadStatusNames.Converted); // re-queues the sent event
+        await _service.ChangeStatus(lead.Id, LeadStatusNames.Converted); // re-queues the failed event
 
         var again = await _db.TrackerEvents.SingleAsync();
         Assert.Equal(TrackerEventStatus.Pending, again.Status);
-        Assert.Equal(bodyAtConversion, again.Body);
+        Assert.Equal("https://tracker.test/fixed", again.Url);
+        Assert.Contains("changed@example.com", again.Body);
+        // Still the same conversion for the tracker.
+        Assert.Equal($"conv_{lead.Id}", again.EventId);
+        Assert.Contains($"\"event_id\": \"conv_{lead.Id}\"", again.Body);
+        Assert.Equal(occurredAt, again.OccurredAt);
+    }
+
+    [Fact]
+    public async Task Converting_again_leaves_a_pending_event_unchanged()
+    {
+        var lead = await SavedLead();
+        await _service.ChangeStatus(lead.Id, LeadStatusNames.Converted);
+        var purchase = await _db.TrackerEndpoints.SingleAsync(e => e.Name == DefaultEndpoints.PurchaseName);
+        purchase.UrlTemplate = "https://tracker.test/fixed";
+
+        await _service.ChangeStatus(lead.Id, LeadStatusNames.Converted);
+
+        var trackerEvent = await _db.TrackerEvents.SingleAsync();
+        Assert.Equal(DefaultEndpoints.BaseUrl + "/conversions", trackerEvent.Url);
     }
 
     [Fact]

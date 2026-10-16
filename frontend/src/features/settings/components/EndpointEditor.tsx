@@ -75,7 +75,7 @@ export default function EndpointEditor({ endpoint }: Readonly<Props>) {
       </div>
 
       {actionError && <p className="error">{errorMessage(actionError)}</p>}
-      {saved && <p className="success">Saved. New events use these templates; events already created keep theirs.</p>}
+      {saved && <p className="success">Saved. New events and "Convert again" use these templates; automatic retries keep the request they started with.</p>}
 
       <label>
         URL

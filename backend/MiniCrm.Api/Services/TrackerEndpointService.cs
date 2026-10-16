@@ -53,7 +53,7 @@ public class TrackerEndpointService(AppDbContext db)
     }
 
     // Events already created keep their own copy of the URL and body, so an edit
-    // only changes events created after it.
+    // only changes new events and events sent again with "convert again".
     public async Task<TrackerEndpointResult> Update(int id, SaveTrackerEndpointRequest request)
     {
         var endpoint = await db.TrackerEndpoints.FindAsync(id);

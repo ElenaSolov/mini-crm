@@ -270,9 +270,18 @@ key never ends up in the database.
 
 ### Snapshot at conversion
 
-The URL, the body and `occurred_at` are rendered once, when the lead converts,
-and stored on the event. Every retry sends exactly the same request, even if the
-lead is edited later.
+The URL, the body and `occurred_at` are rendered when the lead converts and
+stored on the event. Every automatic retry sends exactly the same request, even
+if the lead or the endpoint settings are edited in the meantime.
+
+**"Convert again" uses the current settings.** It renders the URL and body again
+from the endpoint templates and the lead as they are now. So if an event failed
+because of a wrong URL (or a wrong email on the lead), you fix it and click
+**Convert again**, and the next attempt goes to the new URL with the new data.
+The `event_id` and `occurred_at` stay the same as the first time, so the tracker
+still sees the same conversion and never counts it twice. An event that is still
+`pending` is not changed (the worker may be sending it at that moment); wait
+until it is `sent` or `failed`, then convert again.
 
 ### Tracker endpoints with macros
 
@@ -297,9 +306,9 @@ relies on them. On save, the backend rejects:
   doesn't contain `{lead_id}` (every lead would get the same `event_id`), or could
   be longer than 128 characters.
 
-An edit only changes events created after it. Events that already exist keep
-their stored URL and body, so a retry or "convert again" still sends the same
-request with the same `event_id`.
+An edit changes new events and events sent with "convert again". Automatic
+retries of an existing event keep its stored URL and body. The `event_id` of an
+existing event never changes, so the tracker still sees the same conversion.
 
 ### Lead statuses in a table
 
