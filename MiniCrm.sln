@@ -7,6 +7,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "backend", "backend", "{C7D1
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MiniCrm.Api", "backend\MiniCrm.Api\MiniCrm.Api.csproj", "{2F8C51B2-3B39-4560-ABEB-B8A2D62B8586}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MiniCrm.Tests", "backend\MiniCrm.Tests\MiniCrm.Tests.csproj", "{4574AC74-9551-4DC8-89AB-DF6B2F3CCA7A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -20,8 +22,13 @@ Global
 		{2F8C51B2-3B39-4560-ABEB-B8A2D62B8586}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{2F8C51B2-3B39-4560-ABEB-B8A2D62B8586}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{2F8C51B2-3B39-4560-ABEB-B8A2D62B8586}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4574AC74-9551-4DC8-89AB-DF6B2F3CCA7A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4574AC74-9551-4DC8-89AB-DF6B2F3CCA7A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4574AC74-9551-4DC8-89AB-DF6B2F3CCA7A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4574AC74-9551-4DC8-89AB-DF6B2F3CCA7A}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{2F8C51B2-3B39-4560-ABEB-B8A2D62B8586} = {C7D180E7-1090-4960-8B80-BE82CB81466C}
+		{4574AC74-9551-4DC8-89AB-DF6B2F3CCA7A} = {C7D180E7-1090-4960-8B80-BE82CB81466C}
 	EndGlobalSection
 EndGlobal
