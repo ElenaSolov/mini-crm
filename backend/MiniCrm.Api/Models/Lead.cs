@@ -30,8 +30,9 @@ public class Lead
         // Converting again is allowed: it re-queues the same conversion event.
         if (Status == LeadStatusNames.Converted && newStatus != LeadStatusNames.Converted)
             error = "A converted lead can't change status.";
-        else if (newStatus == LeadStatusNames.Converted && Status == LeadStatusNames.Lost)
-            error = "A lost lead can't be converted.";
+        // Lost is final too, so a lost lead can't reach converted through another status.
+        else if (Status == LeadStatusNames.Lost && newStatus != LeadStatusNames.Lost)
+            error = "A lost lead can't be converted or change status.";
         else if (newStatus == LeadStatusNames.Converted && !HasContact)
             error = "A lead needs an email or a phone to be converted.";
         else if (newStatus == LeadStatusNames.Converted && Amount is null)

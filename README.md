@@ -357,7 +357,10 @@ Security, because these URLs are public:
 - **`converted` is final.** A converted lead can't move to another status.
   Converting it again is allowed: it re-sends the same event.
 - **Converting needs a contact and an amount**, and a `lost` lead can't be
-  converted (from the task). Other status changes are free.
+  converted (from the task).
+- **`lost` is final too.** A lost lead can't move to another status, otherwise
+  `lost → contacted → converted` would get around the task rule. Other status
+  changes are free.
 - **`currency` is required when `amount` is set**, so a converted lead always
   has both. It is stored in upper case.
 - **Status changes only go through `POST /api/leads/{id}/status`.** `PUT` can't

@@ -207,6 +207,17 @@ public class LeadsApiTests(ApiFactory factory) : ApiTestBase(factory)
     }
 
     [Fact]
+    public async Task Lost_lead_cannot_be_converted_through_another_status()
+    {
+        var lead = await CreateLead();
+        await ChangeStatus(lead.Id, "lost");
+
+        Assert.Equal(HttpStatusCode.Conflict, (await ChangeStatus(lead.Id, "contacted")).StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await ChangeStatus(lead.Id, "converted")).StatusCode);
+        Assert.Empty(await GetEvents(lead.Id));
+    }
+
+    [Fact]
     public async Task Converting_without_amount_is_409()
     {
         var lead = await CreateLead(new { name = "Ann", email = "lead@example.com" });

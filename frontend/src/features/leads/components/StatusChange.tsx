@@ -15,9 +15,16 @@ export default function StatusChange({ lead, statuses }: Readonly<Props>) {
   const [simulateServerError, setSimulateServerError] = useState(false);
   const [changeStatus, { error, isLoading, reset }] = useChangeStatusMutation();
 
-  const isConvertAgain = lead.status === 'converted' && newStatus === 'converted';
+  // Converted and lost are final (the backend enforces it). Locking the dropdown
+  // just saves the user a click that would end in a 409.
+  const isConverted = lead.status === 'converted';
+  const isLost = lead.status === 'lost';
+  const isFinal = isConverted || isLost;
+  // A locked dropdown always shows the real status, never an older choice.
+  const selectedStatus = isFinal ? lead.status : newStatus;
+
   // Saving the same status does nothing, except for converted: that re-sends the event.
-  const canSave = newStatus !== lead.status || isConvertAgain;
+  const canSave = isConverted || (!isLost && selectedStatus !== lead.status);
 
   // The old error was about the old choice, so it goes away with it.
   function handleSelect(status: LeadStatus) {
@@ -29,8 +36,8 @@ export default function StatusChange({ lead, statuses }: Readonly<Props>) {
     try {
       await changeStatus({
         id: lead.id,
-        status: newStatus,
-        simulateServerError: newStatus === 'converted' && simulateServerError,
+        status: selectedStatus,
+        simulateServerError: selectedStatus === 'converted' && simulateServerError,
       }).unwrap();
       setSimulateServerError(false);
     } catch {
@@ -48,16 +55,22 @@ export default function StatusChange({ lead, statuses }: Readonly<Props>) {
         </p>
       )}
       <div className="row">
-        <select value={newStatus} onChange={(e) => handleSelect(e.target.value)}>
+        <select
+          value={selectedStatus}
+          onChange={(e) => handleSelect(e.target.value)}
+          disabled={isFinal}
+        >
           {statuses.map((status) => (
             <option key={status} value={status}>{status}</option>
           ))}
         </select>
         <button className="primary" onClick={handleSave} disabled={isLoading || !canSave}>
-          {isConvertAgain ? 'Convert again' : 'Save status'}
+          {isConverted ? 'Convert again' : 'Save status'}
         </button>
       </div>
-      {newStatus === 'converted' && (
+      {isConverted && <p className="hint">A converted lead can't change status. You can only convert it again.</p>}
+      {isLost && <p className="hint">A lost lead can't change status or be converted.</p>}
+      {selectedStatus === 'converted' && (
         <label className="checkbox">
           <input
             type="checkbox"

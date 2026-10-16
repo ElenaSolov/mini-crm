@@ -86,13 +86,18 @@ public class LeadRulesTests
         Assert.True(lead.TryChangeStatus(LeadStatusNames.Converted, out _));
     }
 
-    [Fact]
-    public void Lost_lead_can_be_reopened()
+    [Theory]
+    [InlineData("new")]
+    [InlineData("contacted")]
+    [InlineData("qualified")]
+    public void Lost_lead_cannot_change_to_another_status(string newStatus)
     {
         var lead = TestData.ConvertibleLead();
         lead.TryChangeStatus(LeadStatusNames.Lost, out _);
 
-        Assert.True(lead.TryChangeStatus("contacted", out _));
+        Assert.False(lead.TryChangeStatus(newStatus, out var error));
+        Assert.Contains("lost", error);
+        Assert.Equal(LeadStatusNames.Lost, lead.Status);
     }
 
     [Fact]
