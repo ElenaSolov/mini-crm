@@ -88,3 +88,32 @@ POST {{api}}/leads
 Content-Type: application/json
 
 { "name": "No Contact" }
+
+### Settings: tracker endpoints and their templates
+GET {{api}}/tracker/endpoints
+
+### Settings: the macros templates can use
+GET {{api}}/tracker/macros
+
+### Settings: preview templates for a sample lead (nothing is saved; problems are in "errors")
+POST {{api}}/tracker/endpoints/2/preview
+Content-Type: application/json
+
+{
+  "url_template": "https://bipro2interface.sseku.com/api/candidate-tracker/conversions",
+  "body_template": "{\"event_id\":\"{event_id}\",\"email\":\"{email}\",\"amount\":{amount}}",
+  "event_id_template": "conv_{lead_id}"
+}
+
+### Settings: rule check, invalid templates -> 400 per field
+PUT {{api}}/tracker/endpoints/2
+Content-Type: application/json
+
+{
+  "url_template": "http://example.com",
+  "body_template": "{\"x\":\"{unknown}\"}",
+  "event_id_template": "conv_{email}"
+}
+
+### Settings: put the purchase templates back to the defaults
+POST {{api}}/tracker/endpoints/2/reset

@@ -35,6 +35,27 @@ public class ConcurrencyTests(ApiFactory factory) : ApiTestBase(factory)
         Assert.Contains(responses, r => r.StatusCode == HttpStatusCode.OK);
     }
 
+    // Settings edits are "last save wins". Each save writes all three templates in one
+    // UPDATE, so the row always holds one request's templates, never a mix of two.
+    [Fact]
+    public async Task Parallel_endpoint_edits_leave_one_requests_templates()
+    {
+        var responses = await Task.WhenAll(Enumerable.Range(0, ParallelRequests).Select(i =>
+            Client.PutAsJsonAsync("/api/tracker/endpoints/2", new
+            {
+                url_template = $"https://tracker.test/conversions/{i}",
+                body_template = $$"""{"event_id":"{event_id}","n":{{i}}}""",
+                event_id_template = $"conv{i}_{{lead_id}}"
+            }, Json)));
+
+        Assert.All(responses, r => Assert.Equal(HttpStatusCode.OK, r.StatusCode));
+        var endpoints = await Client.GetFromJsonAsync<List<TrackerEndpointResponse>>("/api/tracker/endpoints", Json);
+        var purchase = endpoints!.Single(e => e.Id == 2);
+        var winner = purchase.UrlTemplate.Split('/').Last();
+        Assert.Equal($$"""{"event_id":"{event_id}","n":{{winner}}}""", purchase.BodyTemplate);
+        Assert.Equal($"conv{winner}_{{lead_id}}", purchase.EventIdTemplate);
+    }
+
     [Fact]
     public async Task Convert_and_lose_at_the_same_time_leave_a_consistent_lead()
     {

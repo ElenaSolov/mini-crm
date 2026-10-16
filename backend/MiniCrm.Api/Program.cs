@@ -36,6 +36,7 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddScoped<LeadService>();
 builder.Services.AddScoped<TrackerEventQueue>();
 builder.Services.AddScoped<TrackerEventSender>();
+builder.Services.AddScoped<TrackerEndpointService>();
 // Outbox worker: sends saved events in the background, with retries.
 builder.Services.AddHostedService<TrackerWorker>();
 // RedactLoggedHeaders: with Trace logging on, .NET would print the API key in the logs.

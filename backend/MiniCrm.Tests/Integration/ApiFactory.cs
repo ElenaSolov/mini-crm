@@ -70,6 +70,15 @@ public class ApiFactory : WebApplicationFactory<Program>
         var defaultStatuses = DefaultLeadStatuses.All().Select(s => s.Name).ToList();
         await db.LeadStatuses.Where(s => !defaultStatuses.Contains(s.Name)).ExecuteDeleteAsync();
 
+        // A settings test may have edited the templates.
+        foreach (var defaults in DefaultEndpoints.All())
+        {
+            await db.TrackerEndpoints.Where(e => e.Id == defaults.Id).ExecuteUpdateAsync(s => s
+                .SetProperty(e => e.UrlTemplate, defaults.UrlTemplate)
+                .SetProperty(e => e.BodyTemplate, defaults.BodyTemplate)
+                .SetProperty(e => e.EventIdTemplate, defaults.EventIdTemplate));
+        }
+
         Tracker.Reset();
     }
 }

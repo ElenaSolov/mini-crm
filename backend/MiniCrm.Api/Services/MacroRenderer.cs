@@ -14,6 +14,18 @@ public static class MacroRenderer
     // {lead_id}, {email}, ... Lower case letters and underscores only, so JSON braces never match.
     private static readonly Regex MacroPattern = new(@"\{([a-z_]+)\}");
 
+    // Every macro a URL or body template can use: the keys of ValuesFor, plus event_id.
+    public static readonly string[] AllMacros =
+        ["event_id", "lead_id", "event_type", "name", "email", "phone", "source", "amount", "currency", "occurred_at"];
+
+    // Values that never change for a lead's event, so the event_id stays the same
+    // even after the lead's email or name is edited.
+    public static readonly string[] EventIdMacros = ["lead_id", "event_type"];
+
+    // The macro names used in a template, e.g. ["lead_id", "email"].
+    public static IEnumerable<string> MacrosIn(string template) =>
+        MacroPattern.Matches(template).Select(match => match.Groups[1].Value).Distinct();
+
     public static Dictionary<string, string> ValuesFor(Lead lead, string eventType, DateTimeOffset occurredAt) => new()
     {
         ["lead_id"] = lead.Id.ToString(CultureInfo.InvariantCulture),
@@ -50,7 +62,7 @@ public static class MacroRenderer
         }
     }
 
-    // Unknown macros are left as they are; the settings page (step 10) rejects them on save.
+    // Unknown macros are left as they are; TrackerEndpointService rejects them on save.
     private static string Render(string template, IReadOnlyDictionary<string, string> values, Func<string, string> escape) =>
         MacroPattern.Replace(template, match =>
             values.TryGetValue(match.Groups[1].Value, out var value) ? escape(value) : match.Value);

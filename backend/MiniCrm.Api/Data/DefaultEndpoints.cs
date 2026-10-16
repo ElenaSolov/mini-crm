@@ -3,7 +3,7 @@ using MiniCrm.Api.Models;
 namespace MiniCrm.Api.Data;
 
 // The tracker endpoints from the task, defined in one place. The migration seeds
-// the TrackerEndpoints table from here, and "Reset to default" (step 10) uses it too.
+// the TrackerEndpoints table from here, and "Reset to default" on the settings page uses it too.
 public static class DefaultEndpoints
 {
     public const string BaseUrl = "https://bipro2interface.sseku.com/api/candidate-tracker";

@@ -21,7 +21,7 @@ backend/MiniCrm.Api/     API, background worker, EF migrations
   Models/                entities with their rules (Lead, TrackerEvent)
   Data/                  DbContext, seeded defaults, migrations
 backend/MiniCrm.Tests/   unit, integration and concurrency tests
-frontend/                React UI (one page)
+frontend/                React UI (leads page and tracker settings page)
 requests.http            ready-made calls to the API
 ```
 
@@ -161,6 +161,11 @@ curl -s http://localhost:5080/api/leads/1/events
 | GET | `/api/leads/{id}/events` | The lead's outbound events with every attempt |
 | GET | `/api/leads/statuses` | Allowed statuses |
 | GET | `/api/tracker/ping` | Calls the tracker's `/ping` with the key |
+| GET | `/api/tracker/endpoints` | The tracker endpoints and their templates |
+| GET | `/api/tracker/macros` | The macros templates can use |
+| POST | `/api/tracker/endpoints/{id}/preview` | Renders the given templates for a sample lead, without saving. Problems are listed in `errors` |
+| PUT | `/api/tracker/endpoints/{id}` | Saves `{ "url_template", "body_template", "event_id_template" }`. `400` per field if a rule is broken |
+| POST | `/api/tracker/endpoints/{id}/reset` | Puts the templates back to the defaults |
 
 Errors: bad input → `400` with the field names (`errors.email`, `errors.status`);
 a broken rule (e.g. converting a lost lead) → `409` with a readable message;
@@ -253,7 +258,25 @@ from `DefaultEndpoints`), not in config. The body is a template with
 placeholders like `{event_id}`, `{email}` and `{amount}`. Values are
 URL-encoded in the URL and JSON-escaped in the body, so a name like
 `Ann "A" & B` can't break the request. `{amount}` has no quotes, so it is sent
-as a number. A settings page to edit these templates is planned as an extra.
+as a number.
+
+The **Tracker settings** page edits these templates. It shows the macro list, a
+live preview of the request for a sample lead, **Reset to default** and
+**Test connection** (ping). Only the URL, body and `event_id` templates can be
+changed; the name, method and trigger status stay fixed, because the code
+relies on them. On save, the backend rejects:
+
+- unknown macros, and any macro on an endpoint that isn't sent for a lead (ping);
+- an empty URL, or a template longer than its database column;
+- a URL that isn't a full `https://` address, so the key is never sent unencrypted;
+- a body that isn't valid JSON once filled in with the sample lead, or a body on a `GET`;
+- an `event_id` that uses anything other than `{lead_id}` and `{event_type}`, or
+  doesn't contain `{lead_id}` (every lead would get the same `event_id`), or could
+  be longer than 128 characters.
+
+An edit only changes events created after it. Events that already exist keep
+their stored URL and body, so a retry or "convert again" still sends the same
+request with the same `event_id`.
 
 ### Lead statuses in a table
 
@@ -310,8 +333,20 @@ uses the EF `DbContext` directly.
 - **Polling every 5 s:** up to 5 seconds before an event is sent. A signal from
   the request to the worker could make it instant.
 - **No host restriction on tracker URLs:** the Bearer key is sent to whatever URL
-  is in `TrackerEndpoints`. In a real product, editing endpoints would be
-  admin-only, with a list of allowed hosts.
+  is in `TrackerEndpoints`, and anyone who can open the settings page can change
+  it. Only `https://` is allowed, so the key is never sent unencrypted. In a real
+  product, editing endpoints would be admin-only, with a list of allowed hosts.
+- **Settings edits are "last save wins":** if two people save the same endpoint
+  at the same time, the later save replaces the earlier one (never a mix of the
+  two). A real product would warn about the other person's change.
+- **Very long URLs:** a URL template near 2000 characters plus long lead values
+  could render a URL longer than the 2000-character column, and that conversion
+  would fail with a `500`.
+- **Changing the `event_id` template can clash with old events:** e.g. after
+  changing `conv_{lead_id}` to `conv_1{lead_id}`, lead 23 gets `conv_123`, which
+  lead 123 may already have. The unique index blocks it (`409`, not a second
+  event), but the message ("changed by another request") doesn't say why. Keep a
+  separator after the prefix, or use a new prefix.
 - **No authentication on the API.** It is a local demo; a real CRM would need
   login and per-user access to leads.
 - **Statuses can be deleted when unused:** the foreign key only protects statuses
