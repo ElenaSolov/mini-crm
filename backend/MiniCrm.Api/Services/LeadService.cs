@@ -12,24 +12,53 @@ public class LeadService(AppDbContext db, TrackerEventQueue eventQueue)
 {
     private const string EditedByAnotherRequest = "The lead was changed by another request. Reload it and try again.";
 
-    public async Task<List<Lead>> GetAll(string? status, string? source)
+    // Text filters use Contains, which EF turns into a SQL parameter, so the value can't
+    // inject SQL, and "%" or "_" are searched as plain characters, not as LIKE wildcards.
+    // SQL Server ignores case, so "ANN" also finds "Ann".
+    public async Task<LeadPage> GetAll(LeadListQuery filter)
     {
         var query = db.Leads.AsNoTracking();
 
-        if (!string.IsNullOrWhiteSpace(status))
-        {
-            // SQL Server ignores case, so "Converted" also finds "converted".
-            var cleanStatus = status.Trim();
-            query = query.Where(l => l.Status == cleanStatus);
-        }
-        if (!string.IsNullOrWhiteSpace(source))
-        {
-            // Sources are saved trimmed and in lower case, so compare the same way.
-            var cleanSource = source.Trim().ToLowerInvariant();
-            query = query.Where(l => l.Source == cleanSource);
-        }
+        if (filter.Id is not null)
+            query = query.Where(l => l.Id == filter.Id);
 
-        return await query.OrderByDescending(l => l.CreatedAt).ToListAsync();
+        if (Clean(filter.Name) is { } name)
+            query = query.Where(l => l.Name.Contains(name));
+        if (Clean(filter.Email) is { } email)
+            query = query.Where(l => l.Email != null && l.Email.Contains(email));
+        if (Clean(filter.Phone) is { } phone)
+            query = query.Where(l => l.Phone != null && l.Phone.Contains(phone));
+        // Sources are saved in lower case and currencies in upper case, so compare the same way.
+        if (Clean(filter.Source)?.ToLowerInvariant() is { } source)
+            query = query.Where(l => l.Source != null && l.Source.Contains(source));
+        if (Clean(filter.Currency)?.ToUpperInvariant() is { } currency)
+            query = query.Where(l => l.Currency != null && l.Currency.Contains(currency));
+
+        if (Clean(filter.Status) is { } status)
+            query = query.Where(l => l.Status == status);
+
+        if (filter.AmountFrom is not null)
+            query = query.Where(l => l.Amount >= filter.AmountFrom);
+        if (filter.AmountTo is not null)
+            query = query.Where(l => l.Amount <= filter.AmountTo);
+
+        if (filter.CreatedFrom is not null)
+            query = query.Where(l => l.CreatedAt >= filter.CreatedFrom);
+        if (filter.CreatedTo is not null)
+            query = query.Where(l => l.CreatedAt <= filter.CreatedTo);
+
+        var totalCount = await query.CountAsync();
+
+        // Id as a tie-breaker, so leads created at the same moment keep the same order
+        // on every page and none is shown twice or skipped.
+        var items = await query
+            .OrderByDescending(l => l.CreatedAt)
+            .ThenByDescending(l => l.Id)
+            .Skip((filter.Page - 1) * filter.PageSize)
+            .Take(filter.PageSize)
+            .ToListAsync();
+
+        return new LeadPage(items, totalCount);
     }
 
     public async Task<Lead?> GetById(int id) => await db.Leads.FindAsync(id);
@@ -134,6 +163,10 @@ public class LeadService(AppDbContext db, TrackerEventQueue eventQueue)
             return LeadResult.Conflict(EditedByAnotherRequest);
         }
     }
+
+    // Trimmed, or null when there is nothing to filter by.
+    private static string? Clean(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     // SQL Server error numbers for a unique index violation.
     private static bool IsDuplicateKey(DbUpdateException ex) =>

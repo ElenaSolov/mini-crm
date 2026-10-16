@@ -1,5 +1,5 @@
 import { api } from '../../../lib/api';
-import type { Lead, LeadInput, LeadsQuery, LeadStatus, TrackerEvent } from '../types';
+import type { Lead, LeadInput, LeadPage, LeadsQuery, LeadStatus, TrackerEvent } from '../types';
 
 // Cache tags: { type: 'Lead', id: 'LIST' } is the leads table, { type: 'Lead', id }
 // is one lead. A change marks the tags it affects, and RTK Query reloads only
@@ -8,7 +8,7 @@ const leadsList = { type: 'Lead', id: 'LIST' } as const;
 
 export const leadsApi = api.injectEndpoints({
   endpoints: (build) => ({
-    getLeads: build.query<Lead[], LeadsQuery>({
+    getLeads: build.query<LeadPage, LeadsQuery>({
       // fetchBaseQuery leaves undefined params out of the URL.
       query: (filters) => ({ url: 'leads', params: filters }),
       providesTags: [leadsList],

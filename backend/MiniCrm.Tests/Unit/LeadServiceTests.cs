@@ -188,4 +188,60 @@ public class LeadServiceTests : IDisposable
 
         Assert.Equal(LeadOutcome.Conflict, result.Outcome);
     }
+
+    // InMemory compares with exact case, so these use the saved case. Ignoring case
+    // is tested against SQL Server in the integration tests.
+    [Fact]
+    public async Task List_filters_combine_and_match_part_of_the_text()
+    {
+        var joanna = await SavedLead(l => { l.Name = "Joanna"; l.Source = "facebook"; l.Amount = 50m; });
+        await SavedLead(l => { l.Name = "Joan"; l.Source = "google"; l.Amount = 50m; });
+        await SavedLead(l => { l.Name = "Joanna"; l.Source = "facebook"; l.Amount = 5m; });
+
+        var page = await _service.GetAll(new LeadListQuery { Name = " oan ", Source = "Book", AmountFrom = 10m });
+
+        Assert.Equal(1, page.TotalCount);
+        Assert.Equal(joanna.Id, Assert.Single(page.Items).Id);
+    }
+
+    [Fact]
+    public async Task Blank_filters_are_ignored()
+    {
+        await SavedLead();
+        await SavedLead();
+
+        var page = await _service.GetAll(new LeadListQuery { Name = " ", Email = "", Status = null });
+
+        Assert.Equal(2, page.TotalCount);
+    }
+
+    [Fact]
+    public async Task List_returns_the_requested_page_and_the_total()
+    {
+        var start = DateTimeOffset.UtcNow;
+        var leads = new List<Lead>();
+        for (var i = 0; i < 5; i++)
+            leads.Add(await SavedLead(l => l.CreatedAt = start.AddMinutes(i)));
+
+        var page = await _service.GetAll(new LeadListQuery { Page = 2, PageSize = 2 });
+
+        Assert.Equal(5, page.TotalCount);
+        // Newest first: page 1 is leads 4 and 3, page 2 is leads 2 and 1.
+        Assert.Equal([leads[2].Id, leads[1].Id], page.Items.Select(l => l.Id));
+    }
+
+    [Fact]
+    public async Task Created_range_includes_both_ends()
+    {
+        var from = new DateTimeOffset(2026, 10, 16, 0, 0, 0, TimeSpan.Zero);
+        var to = from.AddDays(1).AddTicks(-1);
+        await SavedLead(l => l.CreatedAt = from.AddTicks(-1));
+        var first = await SavedLead(l => l.CreatedAt = from);
+        var last = await SavedLead(l => l.CreatedAt = to);
+        await SavedLead(l => l.CreatedAt = to.AddTicks(1));
+
+        var page = await _service.GetAll(new LeadListQuery { CreatedFrom = from, CreatedTo = to });
+
+        Assert.Equal(new[] { first.Id, last.Id }.Order(), page.Items.Select(l => l.Id).Order());
+    }
 }

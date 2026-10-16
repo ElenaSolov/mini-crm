@@ -27,10 +27,30 @@ export interface LeadInput {
   currency: string | null;
 }
 
-// Empty filters are left out of the URL.
-export interface LeadsQuery {
-  status?: string;
-  source?: string;
+// The filter inputs, as typed. '' means "no filter". Text filters match part of
+// the value; amount and created are ranges (created as YYYY-MM-DD from the date input).
+export interface LeadFilterValues {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  source: string;
+  status: string;
+  currency: string;
+  amount_from: string;
+  amount_to: string;
+  created_from: string;
+  created_to: string;
+}
+
+// The GET /api/leads query string. Empty filters are left out of the URL.
+export type LeadsQuery = Partial<LeadFilterValues> & { page: number; page_size: number };
+
+export interface LeadPage {
+  items: Lead[];
+  page: number;
+  page_size: number;
+  total_count: number;
 }
 
 export type TrackerEventStatus = 'pending' | 'sent' | 'failed';

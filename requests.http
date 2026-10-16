@@ -1,0 +1,90 @@
+# Calls to the Mini CRM API. Works with the VS Code "REST Client" extension,
+# Visual Studio and JetBrains IDEs.
+# This file only calls our own API. It never contains the tracker API key:
+# the backend reads it from .env.
+
+@api = http://localhost:5080/api
+# Set this to the id returned by "Create a lead".
+@leadId = 1
+
+### Test step 1: tracker connectivity (expect status_code 200 inside the answer)
+GET {{api}}/tracker/ping
+
+### Create a lead
+POST {{api}}/leads
+Content-Type: application/json
+
+{
+  "name": "Ann Lee",
+  "email": "ann@example.com",
+  "phone": "+12025550123",
+  "source": "facebook",
+  "amount": 199.00,
+  "currency": "USD"
+}
+
+### List leads. All filters are optional. name, email, phone, source and currency
+### match part of the value; status is exact; amount and created are ranges.
+### Answer: { items, page, page_size, total_count }. page_size is 1-100 (default 20).
+GET {{api}}/leads?status=new&source=face&name=ann&amount_from=100&created_from=2026-01-01T00:00:00Z&page=1&page_size=20
+
+### Get one lead
+GET {{api}}/leads/{{leadId}}
+
+### Edit a lead (status can't be changed here)
+PUT {{api}}/leads/{{leadId}}
+Content-Type: application/json
+
+{
+  "name": "Ann Lee",
+  "email": "ann@example.com",
+  "phone": "+12025550123",
+  "source": "google",
+  "amount": 249.00,
+  "currency": "USD"
+}
+
+### Change status (not to converted)
+POST {{api}}/leads/{{leadId}}/status
+Content-Type: application/json
+
+{ "status": "contacted" }
+
+### Test step 2: convert (tracker answers 201)
+POST {{api}}/leads/{{leadId}}/status
+Content-Type: application/json
+
+{ "status": "converted" }
+
+### Test step 3: convert the same lead again (tracker answers 200 + duplicate:true)
+POST {{api}}/leads/{{leadId}}/status
+Content-Type: application/json
+
+{ "status": "converted" }
+
+### Test step 5: convert a NEW lead with a simulated 500 (first 500, then 201 on the retry)
+POST {{api}}/leads/{{leadId}}/status
+Content-Type: application/json
+
+{ "status": "converted", "simulate_server_error": true }
+
+### The lead's events and every attempt (request + response)
+GET {{api}}/leads/{{leadId}}/events
+
+### Allowed statuses
+GET {{api}}/leads/statuses
+
+### Delete a lead (409 if it has tracker events)
+DELETE {{api}}/leads/{{leadId}}
+
+### Rule check: a lead with no amount. Converting it gives 409.
+POST {{api}}/leads
+Content-Type: application/json
+
+{ "name": "No Amount", "email": "no.amount@example.com" }
+
+### Validation check: no email and no phone -> 400
+POST {{api}}/leads
+Content-Type: application/json
+
+{ "name": "No Contact" }

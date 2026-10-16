@@ -52,7 +52,11 @@ label { display: flex; flex-direction: column; gap: 4px; font-weight: 500; }
 
 .main { flex: 1; min-width: 0; padding: 24px; }
 .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-.filters { display: flex; gap: 12px; margin-bottom: 16px; }
+.filters { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; margin-bottom: 16px; }
+.filters input { width: 140px; }
+.filters .filter-short input { width: 100px; }
+
+.pagination { display: flex; justify-content: flex-end; align-items: center; gap: 12px; margin-top: 12px; color: var(--muted); }
 
 .panel {
   width: 460px;

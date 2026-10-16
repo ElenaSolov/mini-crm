@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Mvc;
 using MiniCrm.Api.Models;
 
 namespace MiniCrm.Api.Dtos;
@@ -75,6 +76,60 @@ public class ChangeStatusRequest
     // "simulate":"server_error", so the tracker answers 500 and the worker retries.
     public bool SimulateServerError { get; set; }
 }
+
+// GET /api/leads query string. Every filter is optional. Text filters match part
+// of the value ("ann" finds "Joanna"); numbers and dates are ranges.
+public class LeadListQuery
+{
+    public const int MaxPageSize = 100;
+
+    [FromQuery(Name = "id")]
+    public int? Id { get; set; }
+
+    [FromQuery(Name = "name"), MaxLength(200)]
+    public string? Name { get; set; }
+
+    [FromQuery(Name = "email"), MaxLength(200)]
+    public string? Email { get; set; }
+
+    [FromQuery(Name = "phone"), MaxLength(32)]
+    public string? Phone { get; set; }
+
+    [FromQuery(Name = "source"), MaxLength(100)]
+    public string? Source { get; set; }
+
+    // Exact match: the UI picks it from the status dropdown.
+    [FromQuery(Name = "status"), MaxLength(LeadStatus.MaxNameLength)]
+    public string? Status { get; set; }
+
+    [FromQuery(Name = "currency"), MaxLength(3)]
+    public string? Currency { get; set; }
+
+    // Same range as a lead's amount. A bigger number doesn't fit the database column (a 500).
+    [FromQuery(Name = "amount_from"), Range(typeof(decimal), "0", "1000000000")]
+    public decimal? AmountFrom { get; set; }
+
+    [FromQuery(Name = "amount_to"), Range(typeof(decimal), "0", "1000000000")]
+    public decimal? AmountTo { get; set; }
+
+    // Exact moments, both included, e.g. 2026-10-16T00:00:00Z. Not whole days: a "day"
+    // depends on the user's time zone, so the UI turns the picked days into moments.
+    [FromQuery(Name = "created_from")]
+    public DateTimeOffset? CreatedFrom { get; set; }
+
+    [FromQuery(Name = "created_to")]
+    public DateTimeOffset? CreatedTo { get; set; }
+
+    // Capped, so (page - 1) * page_size always fits in an int.
+    [FromQuery(Name = "page"), Range(1, 1_000_000)]
+    public int Page { get; set; } = 1;
+
+    // Capped, so one request can't load the whole table.
+    [FromQuery(Name = "page_size"), Range(1, MaxPageSize)]
+    public int PageSize { get; set; } = 20;
+}
+
+public record LeadPageResponse(List<LeadResponse> Items, int Page, int PageSize, int TotalCount);
 
 public record LeadResponse(
     int Id,

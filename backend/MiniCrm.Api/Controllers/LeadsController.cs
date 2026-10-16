@@ -9,10 +9,11 @@ namespace MiniCrm.Api.Controllers;
 public class LeadsController(LeadService leads) : ControllerBase
 {
     [HttpGet]
-    public async Task<List<LeadResponse>> GetAll([FromQuery] string? status, [FromQuery] string? source)
+    public async Task<LeadPageResponse> GetAll([FromQuery] LeadListQuery query)
     {
-        var result = await leads.GetAll(status, source);
-        return result.Select(LeadResponse.From).ToList();
+        var page = await leads.GetAll(query);
+        return new LeadPageResponse(
+            page.Items.Select(LeadResponse.From).ToList(), query.Page, query.PageSize, page.TotalCount);
     }
 
     // The statuses from the LeadStatuses table, so the UI doesn't keep its own copy of the list.

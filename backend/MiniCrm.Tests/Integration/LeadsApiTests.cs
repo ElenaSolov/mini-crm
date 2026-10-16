@@ -45,15 +45,110 @@ public class LeadsApiTests(ApiFactory factory) : ApiTestBase(factory)
         var facebookLost = await CreateLead(new { name = "C", email = "c@x.com", source = "facebook" });
         await ChangeStatus(facebookLost.Id, "lost");
 
-        var byStatus = await Client.GetFromJsonAsync<List<LeadResponse>>("/api/leads?status=new", Json);
-        var bySource = await Client.GetFromJsonAsync<List<LeadResponse>>("/api/leads?source=Facebook", Json);
-        var byBoth = await Client.GetFromJsonAsync<List<LeadResponse>>("/api/leads?status=lost&source=facebook", Json);
+        var byStatus = await ListLeadIds("status=new");
+        var bySource = await ListLeadIds("source=Facebook");
+        var byBoth = await ListLeadIds("status=lost&source=facebook");
 
         // Sorted, so the test doesn't depend on created_at order of leads made microseconds apart.
-        Assert.Equal(new[] { facebookNew.Id, googleNew.Id }.Order(), byStatus!.Select(l => l.Id).Order());
-        Assert.Equal(new[] { facebookNew.Id, facebookLost.Id }.Order(), bySource!.Select(l => l.Id).Order());
-        Assert.Equal([facebookLost.Id], byBoth!.Select(l => l.Id));
+        Assert.Equal(new[] { facebookNew.Id, googleNew.Id }.Order(), byStatus.Order());
+        Assert.Equal(new[] { facebookNew.Id, facebookLost.Id }.Order(), bySource.Order());
+        Assert.Equal([facebookLost.Id], byBoth);
     }
+
+    [Fact]
+    public async Task Text_filters_match_part_of_the_value_and_ignore_case()
+    {
+        var joanna = await CreateLead(new { name = "Joanna", email = "joanna@mail.com", phone = "+12025550123", source = "facebook", amount = 10m, currency = "USD" });
+        var bob = await CreateLead(new { name = "Bob", email = "bob@work.org", phone = "+44700900", source = "google", amount = 10m, currency = "EUR" });
+
+        Assert.Equal([joanna.Id], await ListLeadIds("name=ANN"));
+        Assert.Equal([bob.Id], await ListLeadIds("email=work"));
+        Assert.Equal([bob.Id], await ListLeadIds("phone=4470"));
+        Assert.Equal([joanna.Id], await ListLeadIds("source=Face"));
+        Assert.Equal([bob.Id], await ListLeadIds("currency=eu"));
+        Assert.Equal([joanna.Id], await ListLeadIds("name=ann&source=book"));
+    }
+
+    [Fact]
+    public async Task Like_wildcards_in_a_filter_are_plain_characters()
+    {
+        await CreateLead(new { name = "Ann", email = "a@x.com" });
+        var percent = await CreateLead(new { name = "100% sure", email = "b@x.com" });
+
+        // In SQL LIKE, "%" and "_" mean "anything". Here they must only find themselves.
+        Assert.Equal([percent.Id], await ListLeadIds("name=%25"));
+        Assert.Empty(await ListLeadIds("name=_"));
+    }
+
+    [Fact]
+    public async Task Id_amount_and_created_filters()
+    {
+        var cheap = await CreateLead(new { name = "A", email = "a@x.com", amount = 10m, currency = "USD" });
+        var expensive = await CreateLead(new { name = "B", email = "b@x.com", amount = 500m, currency = "USD" });
+        // "+" in a query string means a space, so the offset is sent as %2B.
+        string Moment(DateTimeOffset value) => Uri.EscapeDataString(value.ToString("O"));
+        var hourAgo = Moment(cheap.CreatedAt.AddHours(-1));
+        var hourLater = Moment(expensive.CreatedAt.AddHours(1));
+
+        Assert.Equal([cheap.Id], await ListLeadIds($"id={cheap.Id}"));
+        Assert.Equal([expensive.Id], await ListLeadIds("amount_from=100"));
+        Assert.Equal([cheap.Id], await ListLeadIds("amount_from=10&amount_to=10"));
+        Assert.Equal(2, (await ListLeadIds($"created_from={hourAgo}&created_to={hourLater}")).Count);
+        Assert.Empty(await ListLeadIds($"created_from={hourLater}"));
+        Assert.Empty(await ListLeadIds($"created_to={hourAgo}"));
+    }
+
+    [Fact]
+    public async Task List_is_paged_newest_first()
+    {
+        var ids = new List<int>();
+        for (var i = 0; i < 5; i++)
+            ids.Add((await CreateLead()).Id);
+
+        var page1 = await ListLeads("page=1&page_size=2");
+        var page3 = await ListLeads("page=3&page_size=2");
+        var page4 = await ListLeads("page=4&page_size=2");
+
+        Assert.Equal(5, page1.TotalCount);
+        Assert.Equal(2, page1.PageSize);
+        Assert.Equal([ids[4], ids[3]], page1.Items.Select(l => l.Id));
+        Assert.Equal([ids[0]], page3.Items.Select(l => l.Id));
+        Assert.Empty(page4.Items);
+        Assert.Equal(5, page4.TotalCount);
+    }
+
+    [Theory]
+    [InlineData("page=0", "page")]
+    [InlineData("page_size=0", "page_size")]
+    [InlineData("page_size=101", "page_size")]
+    [InlineData("id=abc", "id")]
+    [InlineData("amount_to=-1", "amount_to")]
+    [InlineData("created_from=yesterday", "created_from")]
+    public async Task Bad_list_query_is_400(string query, string field)
+    {
+        var response = await Client.GetAsync($"/api/leads?{query}");
+
+        Assert.Contains(field, await ErrorFields(response));
+    }
+
+    // Extreme values must give a clean answer, never a 500.
+    [Theory]
+    [InlineData("page=2147483647")]
+    [InlineData("created_to=9999-12-31T23:59:59Z")]
+    [InlineData("created_from=0001-01-01T00:00:00%2B05:00")]
+    [InlineData("amount_from=100000000000000000000")]
+    public async Task Extreme_list_query_is_not_500(string query)
+    {
+        var response = await Client.GetAsync($"/api/leads?{query}");
+
+        Assert.NotEqual(HttpStatusCode.InternalServerError, response.StatusCode);
+    }
+
+    private async Task<LeadPageResponse> ListLeads(string query) =>
+        (await Client.GetFromJsonAsync<LeadPageResponse>($"/api/leads?{query}", Json))!;
+
+    private async Task<List<int>> ListLeadIds(string query) =>
+        (await ListLeads(query)).Items.Select(l => l.Id).ToList();
 
     [Fact]
     public async Task Update_cannot_change_the_status()

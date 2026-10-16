@@ -152,7 +152,7 @@ curl -s http://localhost:5080/api/leads/1/events
 
 | Method | Path | What it does |
 |---|---|---|
-| GET | `/api/leads?status=&source=` | List leads, both filters optional |
+| GET | `/api/leads?name=&email=&phone=&source=&currency=&status=&id=&amount_from=&amount_to=&created_from=&created_to=&page=1&page_size=20` | List leads, newest first, one page at a time: `{ items, page, page_size, total_count }`. All filters optional. Text filters match part of the value and ignore case (`name=ann` finds "Joanna"); `status` and `id` are exact; amount (0–1,000,000,000) and created (exact moments like `2026-10-16T00:00:00Z`, both ends included; the UI turns the picked days into moments in the user's time zone) are ranges. `page` is 1–1,000,000, `page_size` is 1–100 |
 | POST | `/api/leads` | Create a lead (always starts as `new`) |
 | GET | `/api/leads/{id}` | One lead |
 | PUT | `/api/leads/{id}` | Edit a lead's fields. Can't change status |
