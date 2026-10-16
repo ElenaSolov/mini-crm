@@ -37,7 +37,10 @@ export default function EventLog({ leadId }: Readonly<{ leadId: number }>) {
           <p className="muted">
             {event.method} {event.url}
             <br />
-            Attempts: {event.attempt_count}
+            Attempts: {event.attempts.length}
+            {/* attempt_count restarts at 0 on "Convert again"; the list keeps every attempt. */}
+            {event.attempt_count !== event.attempts.length &&
+              ` (${event.attempt_count} since last "Convert again")`}
             {event.status === 'pending' && event.next_attempt_at &&
               ` · next try ${formatDate(event.next_attempt_at)}`}
           </p>
