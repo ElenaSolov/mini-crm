@@ -57,13 +57,35 @@ public class SaveLeadRequestTests
         Assert.Null(request.Email);
     }
 
-    [Fact]
-    public void Invalid_email_is_rejected()
+    [Theory]
+    [InlineData("not-an-email")]
+    [InlineData("a b@c.com")]
+    [InlineData("a@b@c.com")]
+    [InlineData("ann@example")]
+    [InlineData("ann@example.c")]
+    [InlineData("@example.com")]
+    [InlineData(".ann@example.com")]
+    [InlineData("ann.@example.com")]
+    [InlineData("ann..lee@example.com")]
+    public void Invalid_email_is_rejected(string email)
     {
         var request = ValidRequest();
-        request.Email = "not-an-email";
+        request.Email = email;
 
-        Assert.NotEmpty(Validate(request));
+        var error = Assert.Single(Validate(request));
+        Assert.Equal(["Email"], error.MemberNames);
+    }
+
+    [Theory]
+    [InlineData("ann_lee-1@example.com")]
+    [InlineData("ann+test@example.com")]
+    [InlineData("ann.lee@mail.example.co.uk")]
+    public void Valid_email_is_accepted(string email)
+    {
+        var request = ValidRequest();
+        request.Email = email;
+
+        Assert.Empty(Validate(request));
     }
 
     [Fact]

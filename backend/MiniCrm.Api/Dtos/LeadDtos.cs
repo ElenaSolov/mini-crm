@@ -19,7 +19,12 @@ public class SaveLeadRequest : IValidatableObject
     [Required, MaxLength(200)]
     public string Name { get => _name; set => _name = value?.Trim() ?? ""; }
 
-    [EmailAddress, MaxLength(200)]
+    // Not [EmailAddress]: it only checks for one "@", so "a b@c.com" would pass here
+    // and then fail at the tracker with a 422. This asks for a plain address:
+    // words joined by single dots, "@", then a domain that ends in at least 2 letters.
+    [MaxLength(200)]
+    [RegularExpression(@"^[A-Za-z0-9_%+-]+(\.[A-Za-z0-9_%+-]+)*@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}$",
+        ErrorMessage = "Email is not valid.")]
     public string? Email { get => _email; set => _email = EmptyToNull(value); }
 
     // The tracker accepts at most 32 characters.

@@ -29,6 +29,15 @@ public class LeadsApiTests(ApiFactory factory) : ApiTestBase(factory)
         Assert.Contains("email", await ErrorFields(response));
     }
 
+    // The tracker would answer 422 for this email, so the CRM rejects it up front.
+    [Fact]
+    public async Task Create_with_space_in_email_is_400()
+    {
+        var response = await Client.PostAsJsonAsync("/api/leads", new { name = "Ann", email = "a b@c.com" }, Json);
+
+        Assert.Contains("email", await ErrorFields(response));
+    }
+
     [Fact]
     public async Task Create_with_amount_but_no_currency_is_400()
     {
