@@ -42,7 +42,7 @@ public static class DefaultEndpoints
             Id = 2,
             Name = PurchaseName,
             Method = "POST",
-            TriggerStatus = LeadStatus.Converted,
+            TriggerStatus = LeadStatusNames.Converted,
             UrlTemplate = BaseUrl + "/conversions",
             BodyTemplate = PurchaseBody,
             EventIdTemplate = "conv_{lead_id}"

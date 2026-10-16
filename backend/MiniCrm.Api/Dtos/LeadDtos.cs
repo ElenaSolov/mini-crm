@@ -65,8 +65,11 @@ public class SaveLeadRequest : IValidatableObject
 
 public class ChangeStatusRequest
 {
-    [Required]
-    public LeadStatus? Status { get; set; }
+    private string? _status;
+
+    // A name from the LeadStatuses table; the service checks that it exists.
+    [Required, MaxLength(LeadStatus.MaxNameLength)]
+    public string? Status { get => _status; set => _status = value?.Trim(); }
 
     // Only for testing retries: the first send of the conversion event gets
     // "simulate":"server_error", so the tracker answers 500 and the worker retries.
@@ -79,7 +82,7 @@ public record LeadResponse(
     string? Email,
     string? Phone,
     string? Source,
-    LeadStatus Status,
+    string Status,
     decimal? Amount,
     string? Currency,
     DateTimeOffset CreatedAt,

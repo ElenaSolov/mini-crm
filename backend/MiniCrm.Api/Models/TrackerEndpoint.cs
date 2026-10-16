@@ -10,7 +10,7 @@ public class TrackerEndpoint
 
     // When a lead moves to this status, an event is queued for this endpoint.
     // Null means the endpoint is never triggered by a lead (e.g. ping).
-    public LeadStatus? TriggerStatus { get; set; }
+    public string? TriggerStatus { get; set; }
 
     public string UrlTemplate { get; set; } = "";
     public string? BodyTemplate { get; set; }

@@ -74,7 +74,50 @@ namespace MiniCrm.Api.Data.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("Status");
+
                     b.ToTable("Leads");
+                });
+
+            modelBuilder.Entity("MiniCrm.Api.Models.LeadStatus", b =>
+                {
+                    b.Property<string>("Name")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.HasKey("Name");
+
+                    b.ToTable("LeadStatuses");
+
+                    b.HasData(
+                        new
+                        {
+                            Name = "new",
+                            SortOrder = 1
+                        },
+                        new
+                        {
+                            Name = "contacted",
+                            SortOrder = 2
+                        },
+                        new
+                        {
+                            Name = "qualified",
+                            SortOrder = 3
+                        },
+                        new
+                        {
+                            Name = "converted",
+                            SortOrder = 4
+                        },
+                        new
+                        {
+                            Name = "lost",
+                            SortOrder = 5
+                        });
                 });
 
             modelBuilder.Entity("MiniCrm.Api.Models.TrackerAttempt", b =>
@@ -158,6 +201,8 @@ namespace MiniCrm.Api.Data.Migrations
                     b.HasIndex("Name")
                         .IsUnique();
 
+                    b.HasIndex("TriggerStatus");
+
                     b.ToTable("TrackerEndpoints");
 
                     b.HasData(
@@ -178,7 +223,7 @@ namespace MiniCrm.Api.Data.Migrations
                             IsActive = true,
                             Method = "POST",
                             Name = "purchase",
-                            TriggerStatus = "Converted",
+                            TriggerStatus = "converted",
                             UrlTemplate = "https://bipro2interface.sseku.com/api/candidate-tracker/conversions"
                         });
                 });
@@ -253,6 +298,15 @@ namespace MiniCrm.Api.Data.Migrations
                     b.ToTable("TrackerEvents");
                 });
 
+            modelBuilder.Entity("MiniCrm.Api.Models.Lead", b =>
+                {
+                    b.HasOne("MiniCrm.Api.Models.LeadStatus", null)
+                        .WithMany()
+                        .HasForeignKey("Status")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("MiniCrm.Api.Models.TrackerAttempt", b =>
                 {
                     b.HasOne("MiniCrm.Api.Models.TrackerEvent", null)
@@ -260,6 +314,14 @@ namespace MiniCrm.Api.Data.Migrations
                         .HasForeignKey("TrackerEventId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("MiniCrm.Api.Models.TrackerEndpoint", b =>
+                {
+                    b.HasOne("MiniCrm.Api.Models.LeadStatus", null)
+                        .WithMany()
+                        .HasForeignKey("TriggerStatus")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("MiniCrm.Api.Models.TrackerEvent", b =>

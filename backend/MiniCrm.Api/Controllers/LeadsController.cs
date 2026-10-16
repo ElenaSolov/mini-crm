@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
 using MiniCrm.Api.Dtos;
-using MiniCrm.Api.Models;
 using MiniCrm.Api.Services;
 
 namespace MiniCrm.Api.Controllers;
@@ -10,11 +9,15 @@ namespace MiniCrm.Api.Controllers;
 public class LeadsController(LeadService leads) : ControllerBase
 {
     [HttpGet]
-    public async Task<List<LeadResponse>> GetAll([FromQuery] LeadStatus? status, [FromQuery] string? source)
+    public async Task<List<LeadResponse>> GetAll([FromQuery] string? status, [FromQuery] string? source)
     {
         var result = await leads.GetAll(status, source);
         return result.Select(LeadResponse.From).ToList();
     }
+
+    // The statuses from the LeadStatuses table, so the UI doesn't keep its own copy of the list.
+    [HttpGet("statuses")]
+    public async Task<List<string>> GetStatuses() => await leads.GetStatuses();
 
     [HttpGet("{id:int}")]
     public async Task<ActionResult<LeadResponse>> GetById(int id)
@@ -41,18 +44,12 @@ public class LeadsController(LeadService leads) : ControllerBase
     public async Task<IActionResult> Delete(int id)
     {
         var result = await leads.Delete(id);
-
-        if (result.NotFound)
-            return NotFound();
-        if (result.Error is not null)
-            return Problem(detail: result.Error, statusCode: StatusCodes.Status409Conflict);
-
-        return NoContent();
+        return ErrorResponse(result) ?? NoContent();
     }
 
     [HttpPost("{id:int}/status")]
     public async Task<ActionResult<LeadResponse>> ChangeStatus(int id, ChangeStatusRequest request) =>
-        ToResponse(await leads.ChangeStatus(id, request.Status!.Value, request.SimulateServerError));
+        ToResponse(await leads.ChangeStatus(id, request.Status!, request.SimulateServerError));
 
     // The lead's outbound events with every attempt: what was sent and what the tracker answered.
     [HttpGet("{id:int}/events")]
@@ -67,11 +64,31 @@ public class LeadsController(LeadService leads) : ControllerBase
 
     private ActionResult<LeadResponse> ToResponse(LeadResult result)
     {
-        if (result.NotFound)
-            return NotFound();
-        if (result.Error is not null)
-            return Problem(detail: result.Error, statusCode: StatusCodes.Status409Conflict);
+        var error = ErrorResponse(result);
+        if (error is not null)
+            return error;
 
         return LeadResponse.From(result.Lead!);
+    }
+
+    // Null on success. A 400 has the same shape as the automatic validation
+    // errors: the message is listed under the field it is about.
+    private ActionResult? ErrorResponse(LeadResult result)
+    {
+        switch (result.Outcome)
+        {
+            case LeadOutcome.NotFound:
+                return NotFound();
+            case LeadOutcome.Invalid:
+                ModelState.AddModelError(result.Field!, result.Error!);
+                return ValidationProblem(ModelState);
+            case LeadOutcome.Conflict:
+                return Problem(detail: result.Error, statusCode: StatusCodes.Status409Conflict);
+            case LeadOutcome.Success:
+                return null;
+            default:
+                // A new outcome was added without a mapping here: fail loudly, not with a null lead.
+                throw new ArgumentOutOfRangeException(nameof(result), result.Outcome, "Unknown lead outcome.");
+        }
     }
 }

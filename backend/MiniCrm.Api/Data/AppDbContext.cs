@@ -6,12 +6,20 @@ namespace MiniCrm.Api.Data;
 public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
 {
     public DbSet<Lead> Leads => Set<Lead>();
+    public DbSet<LeadStatus> LeadStatuses => Set<LeadStatus>();
     public DbSet<TrackerEndpoint> TrackerEndpoints => Set<TrackerEndpoint>();
     public DbSet<TrackerEvent> TrackerEvents => Set<TrackerEvent>();
     public DbSet<TrackerAttempt> TrackerAttempts => Set<TrackerAttempt>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<LeadStatus>(status =>
+        {
+            status.HasKey(s => s.Name);
+            status.Property(s => s.Name).HasMaxLength(LeadStatus.MaxNameLength);
+            status.HasData(DefaultLeadStatuses.All());
+        });
+
         modelBuilder.Entity<Lead>(lead =>
         {
             lead.Property(l => l.Name).HasMaxLength(200);
@@ -20,7 +28,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             lead.Property(l => l.Source).HasMaxLength(100);
             lead.Property(l => l.Amount).HasPrecision(18, 2);
             lead.Property(l => l.Currency).HasMaxLength(3);
-            lead.Property(l => l.Status).HasConversion<string>().HasMaxLength(20);
+            // The foreign key keeps every lead's status in the LeadStatuses table.
+            // Restrict: a status that leads use can't be deleted.
+            lead.Property(l => l.Status).HasMaxLength(LeadStatus.MaxNameLength);
+            lead.HasOne<LeadStatus>().WithMany().HasForeignKey(l => l.Status).OnDelete(DeleteBehavior.Restrict);
             lead.Property(l => l.RowVersion).IsRowVersion();
         });
 
@@ -29,7 +40,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             endpoint.HasIndex(e => e.Name).IsUnique();
             endpoint.Property(e => e.Name).HasMaxLength(50);
             endpoint.Property(e => e.Method).HasMaxLength(10);
-            endpoint.Property(e => e.TriggerStatus).HasConversion<string>().HasMaxLength(20);
+            endpoint.Property(e => e.TriggerStatus).HasMaxLength(LeadStatus.MaxNameLength);
+            endpoint.HasOne<LeadStatus>().WithMany().HasForeignKey(e => e.TriggerStatus).OnDelete(DeleteBehavior.Restrict);
             endpoint.Property(e => e.UrlTemplate).HasMaxLength(2000);
             endpoint.Property(e => e.EventIdTemplate).HasMaxLength(128);
             endpoint.HasData(DefaultEndpoints.All());
