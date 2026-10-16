@@ -1,0 +1,108 @@
+:root {
+  --navy: #0f172a;
+  --accent: #1a73e8;
+  --bg: #f8fafc;
+  --white: #ffffff;
+  --border: #e2e8f0;
+  --muted: #64748b;
+  --red: #dc2626;
+  --green: #16a34a;
+  --amber: #d97706;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  color: var(--navy);
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); }
+h1 { font-size: 22px; margin: 0; }
+h2 { font-size: 18px; margin: 0 0 12px; }
+h3 { font-size: 14px; margin: 20px 0 8px; text-transform: uppercase; color: var(--muted); }
+
+button {
+  font: inherit;
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--white);
+  color: var(--navy);
+  cursor: pointer;
+}
+button:disabled { opacity: 0.6; cursor: default; }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--white); }
+button.danger { color: var(--red); border-color: var(--red); }
+
+input, select {
+  font: inherit;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--white);
+}
+
+label { display: flex; flex-direction: column; gap: 4px; font-weight: 500; }
+
+/* Layout: sidebar | main | side panel */
+.layout { display: flex; min-height: 100vh; }
+
+.sidebar { width: 200px; flex-shrink: 0; background: var(--navy); color: var(--white); padding: 20px 16px; }
+.logo { font-size: 18px; font-weight: 700; margin-bottom: 24px; }
+.nav-item { display: block; padding: 8px 10px; border-radius: 6px; }
+.nav-item.active { background: rgba(255, 255, 255, 0.12); }
+
+.main { flex: 1; min-width: 0; padding: 24px; }
+.page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.filters { display: flex; gap: 12px; margin-bottom: 16px; }
+
+.panel {
+  width: 460px;
+  flex-shrink: 0;
+  background: var(--white);
+  border-left: 1px solid var(--border);
+  padding: 20px;
+  overflow-y: auto;
+  max-height: 100vh;
+  position: sticky;
+  top: 0;
+}
+.panel-header { display: flex; justify-content: space-between; align-items: center; }
+
+/* Leads table */
+.leads-table { width: 100%; border-collapse: collapse; background: var(--white); border: 1px solid var(--border); }
+.leads-table th, .leads-table td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+.leads-table th { background: var(--bg); font-weight: 600; color: var(--muted); }
+.leads-table tbody tr { cursor: pointer; }
+.leads-table tbody tr:hover { background: var(--bg); }
+.leads-table tr.selected { background: #e8f0fe; }
+
+/* Status badges */
+.badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: 600; background: var(--border); }
+.badge-contacted, .badge-qualified { background: #e8f0fe; color: var(--accent); }
+.badge-converted, .badge-sent { background: #dcfce7; color: var(--green); }
+.badge-lost, .badge-failed { background: #fee2e2; color: var(--red); }
+.badge-pending { background: #fef3c7; color: var(--amber); }
+
+/* Form and detail */
+.lead-form { display: flex; flex-direction: column; gap: 12px; }
+.field-error { color: var(--red); font-weight: 400; font-size: 12px; }
+.actions { display: flex; gap: 8px; margin-top: 8px; }
+.fields { display: grid; grid-template-columns: 90px 1fr; gap: 6px 12px; margin: 0; }
+.fields dt { color: var(--muted); }
+.fields dd { margin: 0; overflow-wrap: anywhere; }
+.status-change .row { display: flex; gap: 8px; }
+.checkbox { flex-direction: row; align-items: center; font-weight: 400; margin-top: 8px; }
+
+/* Event log */
+.event { border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 12px; }
+.event-header { display: flex; justify-content: space-between; align-items: center; }
+.attempts { padding-left: 20px; margin: 8px 0 0; }
+.attempts li { margin-bottom: 8px; }
+.code { font-weight: 700; }
+.code.ok { color: var(--green); }
+.code.fail { color: var(--red); }
+pre { background: var(--bg); padding: 8px; border-radius: 6px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; margin: 4px 0; }
+summary { cursor: pointer; color: var(--accent); margin-top: 4px; }
+
+.hint, .muted, .empty { color: var(--muted); }
+.muted { overflow-wrap: anywhere; margin: 6px 0; }
+.error { color: var(--red); margin: 6px 0; }
