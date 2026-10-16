@@ -62,11 +62,30 @@ Content-Type: application/json
 
 { "status": "converted" }
 
-### Test step 5: convert a NEW lead with a simulated 500 (first 500, then 201 on the retry)
-POST {{api}}/leads/{{leadId}}/status
+### Test step 5, part 1: create a NEW lead for the retry test.
+### The lead from steps 2-3 was already sent, so the tracker would only answer "duplicate".
+POST {{api}}/leads
+Content-Type: application/json
+
+{
+  "name": "Retry Test",
+  "email": "retry.test@example.com",
+  "source": "facebook",
+  "amount": 99.00,
+  "currency": "USD"
+}
+
+### Test step 5, part 2: convert the new lead with a simulated 500
+### (attempt 1: 500, attempt 2 about 10 s later: 201, same event_id)
+# Set this to the id returned by part 1 (2 on a fresh database).
+@retryLeadId = 2
+POST {{api}}/leads/{{retryLeadId}}/status
 Content-Type: application/json
 
 { "status": "converted", "simulate_server_error": true }
+
+### Test step 5, part 3: wait about 10 s, then check both attempts
+GET {{api}}/leads/{{retryLeadId}}/events
 
 ### The lead's events and every attempt (request + response)
 GET {{api}}/leads/{{leadId}}/events
