@@ -31,6 +31,13 @@ export interface MacroList {
   event_id_macros: string[];
 }
 
+// The pixel and postback URLs for the client's own website form.
+// token is null only if the backend hasn't created it yet (it does at startup).
+export interface InboundSettings {
+  token: string | null;
+  fields: string[];
+}
+
 // The tracker's own answer to ping. status_code is null when it didn't answer.
 export interface PingResult {
   status_code: number | null;

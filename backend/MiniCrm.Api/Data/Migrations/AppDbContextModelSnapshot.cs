@@ -22,6 +22,21 @@ namespace MiniCrm.Api.Data.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("MiniCrm.Api.Models.InboundSettings", b =>
+                {
+                    b.Property<int>("Id")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("InboundSettings");
+                });
+
             modelBuilder.Entity("MiniCrm.Api.Models.Lead", b =>
                 {
                     b.Property<int>("Id")

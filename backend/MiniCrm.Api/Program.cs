@@ -1,7 +1,9 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Mvc.ModelBinding.Metadata;
 using Microsoft.EntityFrameworkCore;
+using MiniCrm.Api.Controllers;
 using MiniCrm.Api.Data;
 using MiniCrm.Api.Services;
 
@@ -37,11 +39,22 @@ builder.Services.AddScoped<LeadService>();
 builder.Services.AddScoped<TrackerEventQueue>();
 builder.Services.AddScoped<TrackerEventSender>();
 builder.Services.AddScoped<TrackerEndpointService>();
+builder.Services.AddScoped<InboundLeadService>();
 // Outbox worker: sends saved events in the background, with retries.
 builder.Services.AddHostedService<TrackerWorker>();
 // RedactLoggedHeaders: with Trace logging on, .NET would print the API key in the logs.
 builder.Services.AddHttpClient<TrackerClient>(client => client.Timeout = TimeSpan.FromSeconds(10))
     .RedactLoggedHeaders(["Authorization"]);
+
+// The inbound URLs are public (they sit in the client's website), so each IP
+// gets a limit: 30 requests a minute, then 429.
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy(InboundController.RateLimitPolicy, http => RateLimitPartition.GetFixedWindowLimiter(
+        http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = 30, Window = TimeSpan.FromMinutes(1) }));
+});
 
 var app = builder.Build();
 
@@ -53,10 +66,12 @@ if (string.IsNullOrWhiteSpace(app.Configuration["Tracker:ApiKey"]))
 
 // Apply EF migrations at startup: creates the database and tables if they don't exist,
 // so a reviewer only needs a connection string to run the app.
+// Then create the inbound token once, so the settings page always shows the pixel and postback URLs.
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     db.Database.Migrate();
+    scope.ServiceProvider.GetRequiredService<InboundLeadService>().EnsureToken();
 }
 
 if (app.Environment.IsDevelopment())
@@ -65,6 +80,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+app.UseRateLimiter();
 app.MapControllers();
 
 app.Run();

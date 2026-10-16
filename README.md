@@ -148,6 +148,26 @@ curl -s -X POST http://localhost:5080/api/leads/1/status \
 curl -s http://localhost:5080/api/leads/1/events
 ```
 
+### From the client's website form (pixel or postback)
+
+1. Open **Tracker settings**. The **Lead capture from your website** card shows
+   the pixel URL and the postback URL, with the token already in them, plus ready
+   examples (a script for the pixel, an HTML form and `curl` for the postback).
+   Click **Copy** and put one of them in the website's form.
+2. When a visitor sends the form, a new lead appears on the **Leads** page with
+   status `new` and source `pixel` or `postback` (or the form's own `source`).
+3. From there it is a normal lead: add an amount if needed and convert it.
+
+The same with curl (take the token from `GET /api/inbound/settings`):
+
+```bash
+curl -s "http://localhost:5080/api/inbound/pixel.png?token=<token>&name=Ann&email=ann@example.com" -o pixel.png
+curl -s -X POST "http://localhost:5080/api/inbound/postback?token=<token>" -d name=Bob -d phone=%2B12025550123
+```
+
+How the token and the limits work: see
+[Lead capture from the client's website](#lead-capture-from-the-clients-website-pixel-and-postback).
+
 ### API overview
 
 | Method | Path | What it does |
@@ -166,6 +186,9 @@ curl -s http://localhost:5080/api/leads/1/events
 | POST | `/api/tracker/endpoints/{id}/preview` | Renders the given templates for a sample lead, without saving. Problems are listed in `errors` |
 | PUT | `/api/tracker/endpoints/{id}` | Saves `{ "url_template", "body_template", "event_id_template" }`. `400` per field if a rule is broken |
 | POST | `/api/tracker/endpoints/{id}/reset` | Puts the templates back to the defaults |
+| GET | `/api/inbound/settings` | The token for the pixel and postback URLs, and the fields they take |
+| GET | `/api/inbound/pixel.png?token=…&name=…&email=…` | Creates a lead from the query string and returns a 1×1 transparent PNG |
+| POST | `/api/inbound/postback?token=…` | Creates a lead from form fields (`application/x-www-form-urlencoded`), `201` with the lead |
 
 Errors: bad input → `400` with the field names (`errors.email`, `errors.status`);
 a broken rule (e.g. converting a lost lead) → `409` with a readable message;
@@ -302,6 +325,33 @@ uses the EF `DbContext` directly.
 - Attempts store URL and body, never headers. HTTP client logging redacts the
   `Authorization` header.
 
+### Lead capture from the client's website (pixel and postback)
+
+**Tracker settings** shows two ready-to-copy URLs that the client puts in their
+own website form, so new leads land in the CRM:
+
+- **Pixel:** `GET /api/inbound/pixel.png?token=…&name=Ann&email=ann@example.com`.
+  The browser loads it as an image after the form is sent. It always answers
+  with `Cache-Control: no-store`, so a cached image never skips a lead.
+- **Postback:** `POST /api/inbound/postback?token=…` with form fields, from an
+  HTML `<form method="post">` or from the client's server (`curl -d name=Ann -d email=…`).
+
+Fields: `name`, `email`, `phone`, `source`, `amount`, `currency`, with the same
+rules as `POST /api/leads`. A new lead is always `new`; a `status` field is
+ignored. Without a `source`, the lead gets `pixel` or `postback`.
+
+Security, because these URLs are public:
+- **Token:** every request needs `?token=`, already filled in the URLs on the
+  settings page. The app creates it at the first startup (64 random hex
+  characters) and keeps it in the one-row `InboundSettings` table, so it stays the
+  same after restarts and nothing needs setting up. It is not in the migration,
+  because a token in code would be the same for everyone who clones the repo. It
+  is compared in fixed time, in an authorization filter that runs before the
+  fields are read, so a caller without it gets `401` and learns nothing about the fields.
+- **Rate limit:** 30 requests a minute per IP, then `429` (built-in ASP.NET Core
+  rate limiter, no extra package).
+- The token is not the tracker API key, and the tracker key is never shown.
+
 ## Assumptions
 
 - **`converted` is final.** A converted lead can't move to another status.
@@ -349,6 +399,26 @@ uses the EF `DbContext` directly.
   separator after the prefix, or use a new prefix.
 - **No authentication on the API.** It is a local demo; a real CRM would need
   login and per-user access to leads.
+- **The inbound token only helps once the API has a login:** today anyone who
+  can reach the pixel can also call `POST /api/leads` directly (no token, no rate
+  limit), or read the token from `/api/inbound/settings`. The token and the rate
+  limit are built for the day the rest of the API needs a login, when the two
+  inbound URLs stay the only public ones.
+- **The inbound token is not truly secret:** a pixel in a public web page shows
+  it to every visitor. It stops random spam, not a determined attacker. A real
+  product would add a captcha or send leads only from the client's server, and
+  a way to change the token from the UI (today: delete the `InboundSettings` row
+  and restart). It is in the URL, so it can also end up
+  in server access logs.
+- **Inbound duplicates:** a page reload fires the pixel again and creates a
+  second lead. There is no de-duplication by email or phone.
+- **Inbound rate limit per IP:** visitors behind one shared IP (an office, a
+  proxy) share the 30 a minute. Behind the Vite dev proxy or a reverse proxy,
+  every request comes from the proxy's IP, so all visitors share one limit
+  (a real setup would read `X-Forwarded-For` from a trusted proxy). Not covered by a test, because the limit is per
+  minute and all integration tests share one app. Checked by hand: requests 1–30 pass, request 31 gets `429`.
+- **Inbound error field names:** form and query errors name the field in C#
+  style (`Email`), JSON errors in JSON style (`email`).
 - **Statuses can be deleted when unused:** the foreign key only protects statuses
   in use. There is no API to edit statuses, but someone with direct database
   access could delete `new` or `lost` and break the rules. A real product would

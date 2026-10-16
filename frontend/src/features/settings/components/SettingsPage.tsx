@@ -2,6 +2,7 @@ import { errorMessage } from '../../../utils/apiError';
 import { useGetEndpointsQuery, useGetMacrosQuery } from '../api/settingsApi';
 import ConnectionTest from './ConnectionTest';
 import EndpointEditor from './EndpointEditor';
+import InboundUrls from './InboundUrls';
 
 // The tracker settings: test the connection, and edit each endpoint's templates.
 export default function SettingsPage() {
@@ -15,6 +16,7 @@ export default function SettingsPage() {
       </header>
 
       <ConnectionTest />
+      <InboundUrls />
 
       {macros.data && (
         <section className="card">

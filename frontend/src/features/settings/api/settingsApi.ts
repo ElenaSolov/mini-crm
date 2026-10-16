@@ -1,5 +1,12 @@
 import { api } from '../../../lib/api';
-import type { EndpointPreview, EndpointTemplates, MacroList, PingResult, TrackerEndpoint } from '../types';
+import type {
+  EndpointPreview,
+  EndpointTemplates,
+  InboundSettings,
+  MacroList,
+  PingResult,
+  TrackerEndpoint,
+} from '../types';
 
 export const settingsApi = api.injectEndpoints({
   endpoints: (build) => ({
@@ -27,6 +34,10 @@ export const settingsApi = api.injectEndpoints({
       invalidatesTags: ['Endpoint'],
     }),
 
+    getInboundSettings: build.query<InboundSettings, void>({
+      query: () => 'inbound/settings',
+    }),
+
     // A mutation, not a query: every click should call the tracker again, not show a cached answer.
     ping: build.mutation<PingResult, void>({
       query: () => 'tracker/ping',
@@ -40,5 +51,6 @@ export const {
   usePreviewEndpointQuery,
   useUpdateEndpointMutation,
   useResetEndpointMutation,
+  useGetInboundSettingsQuery,
   usePingMutation,
 } = settingsApi;

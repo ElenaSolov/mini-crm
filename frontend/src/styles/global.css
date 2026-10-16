@@ -117,6 +117,8 @@ textarea { font-family: ui-monospace, Consolas, monospace; font-size: 12px; resi
 .macros { display: flex; flex-wrap: wrap; gap: 6px; }
 code { background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px; font-size: 12px; }
 .success { color: var(--green); margin: 6px 0; }
+.copy-block { display: flex; gap: 8px; align-items: flex-start; }
+.copy-block pre { flex: 1; }
 
 .hint, .muted, .empty { color: var(--muted); }
 .muted { overflow-wrap: anywhere; margin: 6px 0; }

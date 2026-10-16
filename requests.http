@@ -117,3 +117,16 @@ Content-Type: application/json
 
 ### Settings: put the purchase templates back to the defaults
 POST {{api}}/tracker/endpoints/2/reset
+
+### Lead capture: settings (shows whether the pixel and postback URLs are on, and the token)
+GET {{api}}/inbound/settings
+
+### Lead capture: pixel. Paste the token from the settings answer above.
+@inboundToken = paste-your-inbound-token
+GET {{api}}/inbound/pixel.png?token={{inboundToken}}&name=Pixel%20Lead&email=pixel@example.com&source=website
+
+### Lead capture: postback with form fields (expect 201 and the new lead)
+POST {{api}}/inbound/postback?token={{inboundToken}}
+Content-Type: application/x-www-form-urlencoded
+
+name=Postback Lead&phone=%2B12025550123&amount=50&currency=USD

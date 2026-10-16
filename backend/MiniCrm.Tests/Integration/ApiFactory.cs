@@ -17,7 +17,6 @@ namespace MiniCrm.Tests.Integration;
 public class ApiFactory : WebApplicationFactory<Program>
 {
     public const string TestApiKey = "test-key";
-
     // A separate database, never the app's own. Set MINICRM_TEST_DB to use another
     // SQL Server (e.g. Docker on Mac/Linux).
     public static readonly string ConnectionString =
@@ -43,7 +42,6 @@ public class ApiFactory : WebApplicationFactory<Program>
         // Command-line level settings: they win over .env and appsettings.json.
         builder.UseSetting("ConnectionStrings:Default", ConnectionString);
         builder.UseSetting("Tracker:ApiKey", TestApiKey);
-
         builder.ConfigureTestServices(services =>
         {
             var worker = services.Single(d => d.ImplementationType == typeof(TrackerWorker));

@@ -10,6 +10,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<TrackerEndpoint> TrackerEndpoints => Set<TrackerEndpoint>();
     public DbSet<TrackerEvent> TrackerEvents => Set<TrackerEvent>();
     public DbSet<TrackerAttempt> TrackerAttempts => Set<TrackerAttempt>();
+    public DbSet<InboundSettings> InboundSettings => Set<InboundSettings>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -71,6 +72,13 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         {
             attempt.Property(a => a.Url).HasMaxLength(2000);
             attempt.HasOne<TrackerEvent>().WithMany(e => e.Attempts).HasForeignKey(a => a.TrackerEventId);
+        });
+
+        modelBuilder.Entity<InboundSettings>(settings =>
+        {
+            // Always row 1, set by the code, not an identity column.
+            settings.Property(s => s.Id).ValueGeneratedNever();
+            settings.Property(s => s.Token).HasMaxLength(64);
         });
     }
 }
