@@ -8,7 +8,7 @@ namespace MiniCrm.Api.Services;
 // The "Logs" page: every outbound event of every lead, with all its attempts.
 public class TrackerEventService(AppDbContext db)
 {
-    // Newest event first. Attempts oldest first, so each event reads like a log.
+    // Newest first: events and their attempts.
     public async Task<TrackerEventPage> GetAll(TrackerEventListQuery filter)
     {
         var query = db.TrackerEvents.AsNoTracking();
@@ -19,7 +19,7 @@ public class TrackerEventService(AppDbContext db)
 
         var events = await query
             .Include(e => e.TrackerEndpoint)
-            .Include(e => e.Attempts.OrderBy(a => a.Id))
+            .Include(e => e.Attempts.OrderByDescending(a => a.Id))
             .OrderByDescending(e => e.Id)
             .Skip((filter.Page - 1) * filter.PageSize)
             .Take(filter.PageSize)

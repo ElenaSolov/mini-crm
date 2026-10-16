@@ -148,7 +148,7 @@ public class LeadService(AppDbContext db, TrackerEventQueue eventQueue)
         return await Save(lead);
     }
 
-    // Null when there is no such lead. Oldest first, attempts too, so it reads like a log.
+    // Null when there is no such lead. Newest first: events and their attempts.
     public async Task<List<TrackerEvent>?> GetEvents(int id)
     {
         if (!await db.Leads.AnyAsync(l => l.Id == id))
@@ -157,9 +157,9 @@ public class LeadService(AppDbContext db, TrackerEventQueue eventQueue)
         return await db.TrackerEvents
             .AsNoTracking()
             .Include(e => e.TrackerEndpoint)
-            .Include(e => e.Attempts.OrderBy(a => a.Id))
+            .Include(e => e.Attempts.OrderByDescending(a => a.Id))
             .Where(e => e.LeadId == id)
-            .OrderBy(e => e.Id)
+            .OrderByDescending(e => e.Id)
             .ToListAsync();
     }
 

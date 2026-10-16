@@ -68,6 +68,21 @@ public class EventsApiTests(ApiFactory factory) : ApiTestBase(factory)
     }
 
     [Fact]
+    public async Task Logs_show_the_newest_attempt_first()
+    {
+        var lead = await CreateLead();
+        await ChangeStatus(lead.Id, "converted");
+        Factory.Tracker.Reply(HttpStatusCode.InternalServerError, """{"ok":false,"error":"server_error"}""");
+        Factory.Tracker.Reply(HttpStatusCode.Created, """{"ok":true,"duplicate":false}""");
+        await SendDueEvents();
+        await MakeRetriesDue();
+        await SendDueEvents();
+
+        var item = Assert.Single((await ListEvents()).Items);
+        Assert.Equal([201, 500], item.Event.Attempts.Select(a => a.StatusCode));
+    }
+
+    [Fact]
     public async Task Logs_filter_by_status_and_page()
     {
         var sent = await CreateLead(ValidLead("Sent"));

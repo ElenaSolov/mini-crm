@@ -5,7 +5,7 @@ namespace MiniCrm.Api.Models;
 // event is queued, so every automatic retry sends exactly the same request.
 public class TrackerEvent
 {
-    public const int MaxAttempts = 5;
+    public const int MaxRetries = 3;
     public static readonly TimeSpan FirstRetryDelay = TimeSpan.FromSeconds(10);
 
     public int Id { get; set; }
@@ -25,7 +25,7 @@ public class TrackerEvent
 
     // Set only through the methods below, so the retry rules can't be skipped.
     public TrackerEventStatus Status { get; private set; } = TrackerEventStatus.Pending;
-    // Attempts since the event was last queued, used for MaxAttempts. "Convert again"
+    // Attempts since the event was last queued, used for MaxRetries. "Convert again"
     // starts from 0, so it can be lower than Attempts.Count (the full history).
     public int AttemptCount { get; private set; }
 
@@ -69,7 +69,7 @@ public class TrackerEvent
 
     // Decides what happens after one send:
     //   2xx (201, or 200 with duplicate:true)  -> sent
-    //   5xx, 429 or no answer                  -> retry later (10s, 20s, 40s...), failed after MaxAttempts
+    //   5xx, 429 or no answer                  -> retry later (10s, 20s, 40s), failed after MaxRetries
     //   other 4xx (422, 401)                   -> failed, because sending the same request again won't help
     public void RecordAttempt(TrackerAttempt attempt)
     {
@@ -88,8 +88,9 @@ public class TrackerEvent
 
         var error = statusCode is null ? attempt.Error : $"Tracker answered {statusCode}.";
         var worthRetrying = statusCode is null or >= 500 or 429;
+        var retriesSoFar = AttemptCount - 1; // the first send is not a retry
 
-        if (worthRetrying && AttemptCount < MaxAttempts)
+        if (worthRetrying && retriesSoFar < MaxRetries)
         {
             NextAttemptAt = attempt.AttemptedAt + FirstRetryDelay * Math.Pow(2, AttemptCount - 1);
             LastError = error;

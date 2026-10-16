@@ -74,7 +74,7 @@ public class ConversionFlowTests(ApiFactory factory) : ApiTestBase(factory)
 
         var trackerEvent = Assert.Single(await GetEvents(lead.Id));
         Assert.Equal(TrackerEventStatus.Sent, trackerEvent.Status);
-        Assert.Equal([201, 200], trackerEvent.Attempts.Select(a => a.StatusCode));
+        Assert.Equal([200, 201], trackerEvent.Attempts.Select(a => a.StatusCode));
 
         var sentEventIds = Factory.Tracker.Requests
             .Select(r => JsonDocument.Parse(r.Body!).RootElement.GetProperty("event_id").GetString());
@@ -116,7 +116,7 @@ public class ConversionFlowTests(ApiFactory factory) : ApiTestBase(factory)
 
         var trackerEvent = Assert.Single(await GetEvents(lead.Id));
         Assert.Equal(TrackerEventStatus.Sent, trackerEvent.Status);
-        Assert.Equal([422, 201], trackerEvent.Attempts.Select(a => a.StatusCode));
+        Assert.Equal([201, 422], trackerEvent.Attempts.Select(a => a.StatusCode));
     }
 
     // Step 5 of the test sequence in docs/Task.md: simulate a 500, then the retry of the same event_id -> 201.
@@ -142,7 +142,7 @@ public class ConversionFlowTests(ApiFactory factory) : ApiTestBase(factory)
 
         var trackerEvent = Assert.Single(await GetEvents(lead.Id));
         Assert.Equal(TrackerEventStatus.Sent, trackerEvent.Status);
-        Assert.Equal([500, 201], trackerEvent.Attempts.Select(a => a.StatusCode));
+        Assert.Equal([201, 500], trackerEvent.Attempts.Select(a => a.StatusCode));
 
         var first = JsonDocument.Parse(Factory.Tracker.Requests[0].Body!).RootElement;
         var second = JsonDocument.Parse(Factory.Tracker.Requests[1].Body!).RootElement;
@@ -150,6 +150,28 @@ public class ConversionFlowTests(ApiFactory factory) : ApiTestBase(factory)
         Assert.False(second.TryGetProperty("simulate", out _));
         Assert.Equal($"conv_{lead.Id}", first.GetProperty("event_id").GetString());
         Assert.Equal($"conv_{lead.Id}", second.GetProperty("event_id").GetString());
+    }
+
+    [Fact]
+    public async Task Server_error_is_retried_3_times_then_the_event_fails()
+    {
+        var lead = await CreateLead();
+        await ChangeStatus(lead.Id, "converted");
+        for (var i = 0; i < 5; i++)
+            Factory.Tracker.Reply(HttpStatusCode.InternalServerError, ServerError);
+
+        await SendDueEvents(); // first send
+        for (var retry = 0; retry < 4; retry++) // one more run than allowed: it must send nothing
+        {
+            await MakeRetriesDue();
+            await SendDueEvents();
+        }
+
+        Assert.Equal(4, Factory.Tracker.Requests.Count);
+        var trackerEvent = Assert.Single(await GetEvents(lead.Id));
+        Assert.Equal(TrackerEventStatus.Failed, trackerEvent.Status);
+        Assert.Equal("Tracker answered 500.", trackerEvent.LastError);
+        Assert.Equal(4, trackerEvent.Attempts.Count);
     }
 
     [Fact]

@@ -205,7 +205,7 @@ unknown lead → `404`.
 | 2 | Create a lead, convert it | event `conv_<id>`, attempt `201`, event `sent` |
 | 3 | Convert the same lead again (UI: **Convert again**) | same event, new attempt `200` with `duplicate:true`, still `sent` |
 | 4 | Send a conversion without email and phone | `422` (see below) |
-| 5 | Create a new lead, convert it with **Test retries** ticked (API: `"simulate_server_error": true`) | attempt 1: `500`, attempt 2 (about 10 s later): `201`. Same `event_id` |
+| 5 | Create a new lead, convert it through the API with `"simulate_server_error": true` (test only, not in the UI) | attempt 1: `500`, attempt 2 (about 10 s later): `201`. Same `event_id` |
 
 **Step 4:** the app itself refuses to convert a lead without email and phone
 (`409`), so this request never reaches the tracker from the app. To show the
@@ -251,7 +251,7 @@ as `failed`.
 | Tracker answer | Result |
 |---|---|
 | `2xx` (`201`, or `200` with `duplicate:true`) | `sent` |
-| `5xx`, `429`, timeout, network error | stays `pending`, retried after 10 s, 20 s, 40 s, 80 s. After 5 attempts: `failed` |
+| `5xx`, `429`, timeout, network error | stays `pending`, retried after 10 s, 20 s, 40 s. After 3 retries (4 attempts in total): `failed` |
 | other `4xx` (`401`, `422`) | `failed`. Sending the same request again won't help |
 
 ### Idempotency

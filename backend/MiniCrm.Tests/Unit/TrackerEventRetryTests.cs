@@ -79,18 +79,19 @@ public class TrackerEventRetryTests
     }
 
     [Fact]
-    public void Event_fails_after_max_attempts()
+    public void Server_error_is_retried_at_most_3_times()
     {
         var trackerEvent = PendingEvent();
 
-        for (var i = 0; i < TrackerEvent.MaxAttempts - 1; i++)
+        trackerEvent.RecordAttempt(Answer(500)); // first send
+        for (var retry = 1; retry <= 3; retry++)
+        {
+            Assert.Equal(TrackerEventStatus.Pending, trackerEvent.Status);
             trackerEvent.RecordAttempt(Answer(500));
-        Assert.Equal(TrackerEventStatus.Pending, trackerEvent.Status);
-
-        trackerEvent.RecordAttempt(Answer(500));
+        }
 
         Assert.Equal(TrackerEventStatus.Failed, trackerEvent.Status);
-        Assert.Equal(TrackerEvent.MaxAttempts, trackerEvent.AttemptCount);
+        Assert.Equal(4, trackerEvent.AttemptCount);
         Assert.Null(trackerEvent.NextAttemptAt);
     }
 

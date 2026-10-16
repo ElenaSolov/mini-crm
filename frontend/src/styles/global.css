@@ -101,7 +101,6 @@ label, .field { display: flex; flex-direction: column; gap: 4px; font-weight: 50
 .fields dt { color: var(--muted); }
 .fields dd { margin: 0; overflow-wrap: anywhere; }
 .status-change .row { display: flex; gap: 8px; }
-.checkbox { flex-direction: row; align-items: center; font-weight: 400; margin-top: 8px; }
 
 /* Event log */
 .event { border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 12px; }

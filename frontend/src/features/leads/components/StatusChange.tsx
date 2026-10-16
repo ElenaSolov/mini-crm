@@ -13,7 +13,6 @@ interface Props {
 // can't be converted) and answers 409 with a readable message.
 export default function StatusChange({ lead, statuses }: Readonly<Props>) {
   const [newStatus, setNewStatus] = useState<LeadStatus>(lead.status);
-  const [simulateServerError, setSimulateServerError] = useState(false);
   const [changeStatus, { error, isLoading, reset }] = useChangeStatusMutation();
 
   // Converted and lost are final (the backend enforces it). Locking the dropdown
@@ -35,12 +34,7 @@ export default function StatusChange({ lead, statuses }: Readonly<Props>) {
 
   async function handleSave() {
     try {
-      await changeStatus({
-        id: lead.id,
-        status: selectedStatus,
-        simulateServerError: selectedStatus === 'converted' && simulateServerError,
-      }).unwrap();
-      setSimulateServerError(false);
+      await changeStatus({ id: lead.id, status: selectedStatus }).unwrap();
     } catch {
       // The error is kept in the mutation state and shown below.
     }
@@ -71,16 +65,6 @@ export default function StatusChange({ lead, statuses }: Readonly<Props>) {
       </div>
       {isConverted && <p className="hint">A converted lead can't change status. You can only convert it again.</p>}
       {isLost && <p className="hint">A lost lead can't change status or be converted.</p>}
-      {selectedStatus === 'converted' && (
-        <label className="checkbox">
-          <input
-            type="checkbox"
-            checked={simulateServerError}
-            onChange={(e) => setSimulateServerError(e.target.checked)}
-          />
-          Test retries: the tracker answers 500 on the first send
-        </label>
-      )}
     </section>
   );
 }

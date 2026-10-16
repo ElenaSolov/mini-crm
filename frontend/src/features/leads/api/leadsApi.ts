@@ -44,11 +44,11 @@ export const leadsApi = api.injectEndpoints({
     }),
 
     // Converting creates or re-queues the tracker event, so the lead's events and the Logs page reload too.
-    changeStatus: build.mutation<Lead, { id: number; status: LeadStatus; simulateServerError: boolean }>({
-      query: ({ id, status, simulateServerError }) => ({
+    changeStatus: build.mutation<Lead, { id: number; status: LeadStatus }>({
+      query: ({ id, status }) => ({
         url: `leads/${id}/status`,
         method: 'POST',
-        body: { status, simulate_server_error: simulateServerError },
+        body: { status },
       }),
       invalidatesTags: (_result, _error, { id }) => [
         leadsList,
