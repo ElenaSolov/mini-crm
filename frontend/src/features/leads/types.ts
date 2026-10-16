@@ -62,6 +62,8 @@ export interface TrackerAttempt {
   request_body: string | null;
   status_code: number | null;
   response_body: string | null;
+  // A short line the backend reads from response_body, e.g. "Provide email or phone.".
+  response_message: string | null;
   error: string | null;
 }
 

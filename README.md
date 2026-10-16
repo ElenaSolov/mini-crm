@@ -239,6 +239,10 @@ table** and a `BackgroundService` worker:
 Why: it needs no extra infrastructure (no Redis, no Hangfire), it is easy to
 read, and the event survives an app restart because it lives in the database.
 
+This is the task's "table + retry command" option: the worker retries
+automatically, and "Convert again" is the manual retry for an event that ended
+as `failed`.
+
 ### Retry rules
 
 | Tracker answer | Result |

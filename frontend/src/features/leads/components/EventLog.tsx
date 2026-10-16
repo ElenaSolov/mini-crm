@@ -60,7 +60,9 @@ export default function EventLog({ leadId }: Readonly<{ leadId: number }>) {
                   </span>{' '}
                   {formatDate(attempt.attempted_at)}
                 </div>
+                {attempt.response_message && <p>{attempt.response_message}</p>}
                 {attempt.error && <p className="error">{attempt.error}</p>}
+                {/* The full request and response stay one click away, so a reviewer can see exactly what happened. */}
                 <details>
                   <summary>Request and response</summary>
                   <p className="muted">Request: {attempt.url}</p>

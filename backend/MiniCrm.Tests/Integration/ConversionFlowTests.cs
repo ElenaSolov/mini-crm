@@ -54,6 +54,7 @@ public class ConversionFlowTests(ApiFactory factory) : ApiTestBase(factory)
         var attempt = Assert.Single(trackerEvent.Attempts);
         Assert.Equal(201, attempt.StatusCode);
         Assert.Equal(Created, attempt.ResponseBody);
+        Assert.Equal("Accepted by the tracker.", attempt.ResponseMessage);
         Assert.Equal(request.Body, attempt.RequestBody);
         Assert.Equal(request.Url, attempt.Url);
     }
@@ -96,7 +97,9 @@ public class ConversionFlowTests(ApiFactory factory) : ApiTestBase(factory)
         var trackerEvent = Assert.Single(await GetEvents(lead.Id));
         Assert.Equal(TrackerEventStatus.Failed, trackerEvent.Status);
         Assert.Equal("Tracker answered 422.", trackerEvent.LastError);
-        Assert.Equal(ValidationError, Assert.Single(trackerEvent.Attempts).ResponseBody);
+        var attempt = Assert.Single(trackerEvent.Attempts);
+        Assert.Equal(ValidationError, attempt.ResponseBody);
+        Assert.Equal("Provide email or phone.", attempt.ResponseMessage);
     }
 
     [Fact]
