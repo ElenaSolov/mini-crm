@@ -8,7 +8,7 @@ namespace MiniCrm.Api.Services;
 public record TrackerResponse(int? StatusCode, string? Body, string? Error);
 
 // Sends one request to the tracker with the API key. It never throws for
-// network problems, so callers (ping now, the worker in step 5) can store
+// network problems, so callers (the ping endpoint and TrackerEventSender) can store
 // or show the outcome.
 public class TrackerClient(HttpClient http, IConfiguration config)
 {

@@ -28,7 +28,7 @@ public class ConversionFlowTests(ApiFactory factory) : ApiTestBase(factory)
         Assert.Equal(DefaultEndpoints.PurchaseName, trackerEvent.Endpoint);
     }
 
-    // Step 2: create a lead, convert it -> 201.
+    // Step 2 of the test sequence in docs/Task.md: create a lead, convert it -> 201.
     [Fact]
     public async Task Convert_sends_the_event_with_the_key_and_stores_request_and_response()
     {
@@ -58,7 +58,7 @@ public class ConversionFlowTests(ApiFactory factory) : ApiTestBase(factory)
         Assert.Equal(request.Url, attempt.Url);
     }
 
-    // Step 3: convert the same lead again -> 200 + duplicate:true, same event_id.
+    // Step 3 of the test sequence in docs/Task.md: convert the same lead again -> 200 + duplicate:true, same event_id.
     [Fact]
     public async Task Convert_again_resends_the_same_event_and_duplicate_counts_as_success()
     {
@@ -80,7 +80,7 @@ public class ConversionFlowTests(ApiFactory factory) : ApiTestBase(factory)
         Assert.Equal([$"conv_{lead.Id}", $"conv_{lead.Id}"], sentEventIds);
     }
 
-    // Step 4: the tracker answers 422 -> failed, no retries.
+    // Step 4 of the test sequence in docs/Task.md: the tracker answers 422 -> failed, no retries.
     [Fact]
     public async Task Validation_error_from_the_tracker_marks_the_event_failed()
     {
@@ -116,7 +116,7 @@ public class ConversionFlowTests(ApiFactory factory) : ApiTestBase(factory)
         Assert.Equal([422, 201], trackerEvent.Attempts.Select(a => a.StatusCode));
     }
 
-    // Step 5: simulate a 500, then the retry of the same event_id -> 201.
+    // Step 5 of the test sequence in docs/Task.md: simulate a 500, then the retry of the same event_id -> 201.
     [Fact]
     public async Task Server_error_is_retried_with_the_same_event_id()
     {
