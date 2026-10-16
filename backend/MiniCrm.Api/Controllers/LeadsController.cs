@@ -13,7 +13,8 @@ public class LeadsController(LeadService leads) : ControllerBase
     {
         var page = await leads.GetAll(query);
         return new LeadPageResponse(
-            page.Items.Select(LeadResponse.From).ToList(), query.Page, query.PageSize, page.TotalCount);
+            page.Items.Select(l => LeadResponse.From(l, page.OutboundStatusOf(l.Id))).ToList(),
+            query.Page, query.PageSize, page.TotalCount);
     }
 
     // The statuses from the LeadStatuses table, so the UI doesn't keep its own copy of the list.
@@ -27,7 +28,7 @@ public class LeadsController(LeadService leads) : ControllerBase
         if (lead is null)
             return NotFound();
 
-        return LeadResponse.From(lead);
+        return LeadResponse.From(lead, await leads.GetOutboundStatus(id));
     }
 
     [HttpPost]
@@ -39,7 +40,7 @@ public class LeadsController(LeadService leads) : ControllerBase
 
     [HttpPut("{id:int}")]
     public async Task<ActionResult<LeadResponse>> Update(int id, SaveLeadRequest request) =>
-        ToResponse(await leads.Update(id, request));
+        await ToResponse(await leads.Update(id, request));
 
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id)
@@ -50,7 +51,7 @@ public class LeadsController(LeadService leads) : ControllerBase
 
     [HttpPost("{id:int}/status")]
     public async Task<ActionResult<LeadResponse>> ChangeStatus(int id, ChangeStatusRequest request) =>
-        ToResponse(await leads.ChangeStatus(id, request.Status!, request.SimulateServerError));
+        await ToResponse(await leads.ChangeStatus(id, request.Status!, request.SimulateServerError));
 
     // The lead's outbound events with every attempt: what was sent and what the tracker answered.
     [HttpGet("{id:int}/events")]
@@ -63,13 +64,13 @@ public class LeadsController(LeadService leads) : ControllerBase
         return events.Select(TrackerEventResponse.From).ToList();
     }
 
-    private ActionResult<LeadResponse> ToResponse(LeadResult result)
+    private async Task<ActionResult<LeadResponse>> ToResponse(LeadResult result)
     {
         var error = ErrorResponse(result);
         if (error is not null)
             return error;
 
-        return LeadResponse.From(result.Lead!);
+        return LeadResponse.From(result.Lead!, await leads.GetOutboundStatus(result.Lead!.Id));
     }
 
     // Null on success. A 400 has the same shape as the automatic validation

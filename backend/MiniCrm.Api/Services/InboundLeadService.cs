@@ -25,10 +25,28 @@ public class InboundLeadService(AppDbContext db, LeadService leads)
         if (db.InboundSettings.Any())
             return;
 
-        // 32 random bytes as hex: 64 characters, safe in a URL, impossible to guess.
-        db.InboundSettings.Add(new InboundSettings { Id = InboundSettings.RowId, Token = RandomNumberGenerator.GetHexString(64) });
+        db.InboundSettings.Add(new InboundSettings { Id = InboundSettings.RowId, Token = RandomToken() });
         db.SaveChanges();
     }
+
+    // The client's own value (already checked by SetInboundTokenRequest).
+    // The old token stops working at once, so old URLs on the website must be updated.
+    public async Task<string> SetToken(string token)
+    {
+        var settings = await db.InboundSettings.FindAsync(InboundSettings.RowId);
+        if (settings is null)
+            db.InboundSettings.Add(new InboundSettings { Id = InboundSettings.RowId, Token = token });
+        else
+            settings.Token = token;
+
+        await db.SaveChangesAsync();
+        return token;
+    }
+
+    public Task<string> GenerateToken() => SetToken(RandomToken());
+
+    // 32 random bytes as hex: 64 characters, safe in a URL, impossible to guess.
+    private static string RandomToken() => RandomNumberGenerator.GetHexString(InboundSettings.MaxTokenLength);
 
     // Null only if the row was deleted by hand; then every request is denied.
     public async Task<string?> GetToken() =>

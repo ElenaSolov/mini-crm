@@ -41,6 +41,8 @@ export default function LeadDetail({ lead, statuses, onEdit, onClose }: Readonly
         <dt>Phone</dt><dd>{lead.phone}</dd>
         <dt>Source</dt><dd>{lead.source}</dd>
         <dt>Status</dt><dd><StatusBadge status={lead.status} /></dd>
+        <dt>Outbound</dt>
+        <dd>{lead.outbound_status ? <StatusBadge status={lead.outbound_status} /> : 'Not sent yet'}</dd>
         <dt>Amount</dt><dd>{formatAmount(lead.amount, lead.currency)}</dd>
         <dt>Created</dt><dd>{formatDate(lead.created_at)}</dd>
         <dt>Updated</dt><dd>{formatDate(lead.updated_at)}</dd>

@@ -74,8 +74,27 @@ public class LeadsApiTests(ApiFactory factory) : ApiTestBase(factory)
         Assert.Equal([bob.Id], await ListLeadIds("email=work"));
         Assert.Equal([bob.Id], await ListLeadIds("phone=4470"));
         Assert.Equal([joanna.Id], await ListLeadIds("source=Face"));
-        Assert.Equal([bob.Id], await ListLeadIds("currency=eu"));
         Assert.Equal([joanna.Id], await ListLeadIds("name=ann&source=book"));
+    }
+
+    [Fact]
+    public async Task Currency_filter_takes_several_codes_and_matches_exactly()
+    {
+        var usd = await CreateLead(new { name = "A", email = "a@x.com", amount = 10m, currency = "USD" });
+        var eur = await CreateLead(new { name = "B", email = "b@x.com", amount = 10m, currency = "EUR" });
+        await CreateLead(new { name = "C", email = "c@x.com", amount = 10m, currency = "ILS" });
+
+        Assert.Equal(new[] { usd.Id, eur.Id }.Order(), (await ListLeadIds("currency=usd,EUR")).Order());
+        Assert.Equal([eur.Id], await ListLeadIds("currency=EUR"));
+        Assert.Empty(await ListLeadIds("currency=EU"));
+    }
+
+    [Fact]
+    public async Task Default_page_size_is_10()
+    {
+        var page = await ListLeads("");
+
+        Assert.Equal(10, page.PageSize);
     }
 
     [Fact]

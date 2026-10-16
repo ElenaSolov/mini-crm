@@ -4,10 +4,11 @@ import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 // with api.injectEndpoints(). The Vite dev server forwards /api to the backend.
 //
 // Tags tell RTK Query which cached answers to reload after a change:
-// "Lead" for lead data, "Events" for a lead's tracker events, "Endpoint" for
-// the tracker endpoint templates on the settings page.
+// "Lead" for lead data, "Events" for tracker events (one lead's, or { id: 'LIST' }
+// for the Logs page), "Endpoint" for the tracker endpoint templates, "Inbound"
+// for the pixel token on the settings page.
 export const api = createApi({
   baseQuery: fetchBaseQuery({ baseUrl: '/api' }),
-  tagTypes: ['Lead', 'Events', 'Endpoint'],
+  tagTypes: ['Lead', 'Events', 'Endpoint', 'Inbound'],
   endpoints: () => ({}),
 });

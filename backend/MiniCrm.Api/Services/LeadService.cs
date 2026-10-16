@@ -31,8 +31,8 @@ public class LeadService(AppDbContext db, TrackerEventQueue eventQueue)
         // Sources are saved in lower case and currencies in upper case, so compare the same way.
         if (Clean(filter.Source)?.ToLowerInvariant() is { } source)
             query = query.Where(l => l.Source != null && l.Source.Contains(source));
-        if (Clean(filter.Currency)?.ToUpperInvariant() is { } currency)
-            query = query.Where(l => l.Currency != null && l.Currency.Contains(currency));
+        if (CurrencyCodes(filter.Currency) is { Count: > 0 } currencies)
+            query = query.Where(l => l.Currency != null && currencies.Contains(l.Currency));
 
         if (Clean(filter.Status) is { } status)
             query = query.Where(l => l.Status == status);
@@ -58,10 +58,24 @@ public class LeadService(AppDbContext db, TrackerEventQueue eventQueue)
             .Take(filter.PageSize)
             .ToListAsync();
 
-        return new LeadPage(items, totalCount);
+        var outboundStatuses = await GetOutboundStatuses(items.Select(l => l.Id).ToList());
+        return new LeadPage(items, outboundStatuses, totalCount);
     }
 
     public async Task<Lead?> GetById(int id) => await db.Leads.FindAsync(id);
+
+    // Null when the lead has no tracker event yet.
+    public async Task<TrackerEventStatus?> GetOutboundStatus(int leadId) =>
+        (await GetOutboundStatuses([leadId])).TryGetValue(leadId, out var status) ? status : null;
+
+    // The status of each lead's newest event, in one query for the whole page.
+    // A lead has one event per endpoint; with the default setup that is just "purchase".
+    private async Task<Dictionary<int, TrackerEventStatus>> GetOutboundStatuses(List<int> leadIds) =>
+        await db.TrackerEvents
+            .Where(e => leadIds.Contains(e.LeadId))
+            .GroupBy(e => e.LeadId)
+            .Select(g => new { LeadId = g.Key, Status = g.OrderByDescending(e => e.Id).Select(e => e.Status).First() })
+            .ToDictionaryAsync(x => x.LeadId, x => x.Status);
 
     // The status names from the LeadStatuses table, in dropdown order.
     public async Task<List<string>> GetStatuses() =>
@@ -167,6 +181,14 @@ public class LeadService(AppDbContext db, TrackerEventQueue eventQueue)
     // Trimmed, or null when there is nothing to filter by.
     private static string? Clean(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    // "usd, EUR," -> ["USD", "EUR"]. EF sends the list as a parameter, so it can't inject SQL.
+    private static List<string> CurrencyCodes(string? value) =>
+        (value ?? "")
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(code => code.ToUpperInvariant())
+            .Distinct()
+            .ToList();
 
     // SQL Server error numbers for a unique index violation.
     private static bool IsDuplicateKey(DbUpdateException ex) =>

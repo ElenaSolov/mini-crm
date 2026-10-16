@@ -107,7 +107,8 @@ public class LeadListQuery
     [FromQuery(Name = "status"), MaxLength(LeadStatus.MaxNameLength)]
     public string? Status { get; set; }
 
-    [FromQuery(Name = "currency"), MaxLength(3)]
+    // One or more codes, comma separated, e.g. "USD,EUR". Exact match: the UI picks them from a list.
+    [FromQuery(Name = "currency"), MaxLength(100)]
     public string? Currency { get; set; }
 
     // Same range as a lead's amount. A bigger number doesn't fit the database column (a 500).
@@ -131,7 +132,7 @@ public class LeadListQuery
 
     // Capped, so one request can't load the whole table.
     [FromQuery(Name = "page_size"), Range(1, MaxPageSize)]
-    public int PageSize { get; set; } = 20;
+    public int PageSize { get; set; } = 10;
 }
 
 public record LeadPageResponse(List<LeadResponse> Items, int Page, int PageSize, int TotalCount);
@@ -146,9 +147,11 @@ public record LeadResponse(
     decimal? Amount,
     string? Currency,
     DateTimeOffset CreatedAt,
-    DateTimeOffset UpdatedAt)
+    DateTimeOffset UpdatedAt,
+    // The newest tracker event status (pending / sent / failed), null before the first conversion.
+    TrackerEventStatus? OutboundStatus)
 {
-    public static LeadResponse From(Lead lead) => new(
+    public static LeadResponse From(Lead lead, TrackerEventStatus? outboundStatus = null) => new(
         lead.Id, lead.Name, lead.Email, lead.Phone, lead.Source, lead.Status,
-        lead.Amount, lead.Currency, lead.CreatedAt, lead.UpdatedAt);
+        lead.Amount, lead.Currency, lead.CreatedAt, lead.UpdatedAt, outboundStatus);
 }

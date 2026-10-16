@@ -40,7 +40,7 @@ input, select, textarea {
   background: var(--white);
 }
 
-label { display: flex; flex-direction: column; gap: 4px; font-weight: 500; }
+label, .field { display: flex; flex-direction: column; gap: 4px; font-weight: 500; }
 
 /* Layout: sidebar | main | side panel */
 .layout { display: flex; min-height: 100vh; }
@@ -56,7 +56,13 @@ label { display: flex; flex-direction: column; gap: 4px; font-weight: 500; }
 .filters { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; margin-bottom: 16px; }
 .filters input { width: 140px; }
 .filters .filter-short input { width: 100px; }
+/* Currency: picked codes as chips, then the input for the next one. */
+.multi-select { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; min-width: 140px; max-width: 260px; }
+.multi-select input { width: 80px; }
+.chip { display: inline-flex; align-items: center; gap: 2px; padding: 2px 6px; border-radius: 10px; background: #e8f0fe; color: var(--accent); font-size: 12px; font-weight: 600; }
+.chip button { border: none; background: none; padding: 0 2px; color: inherit; cursor: pointer; }
 
+.page-size { flex-direction: row; align-items: center; gap: 6px; font-weight: 400; }
 .pagination { display: flex; justify-content: flex-end; align-items: center; gap: 12px; margin-top: 12px; color: var(--muted); }
 
 .panel {
@@ -109,7 +115,7 @@ pre { background: var(--bg); padding: 8px; border-radius: 6px; white-space: pre-
 summary { cursor: pointer; color: var(--accent); margin-top: 4px; }
 
 /* Settings page */
-.settings { max-width: 900px; }
+.settings, .logs { max-width: 900px; }
 .card { background: var(--white); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 16px; }
 .endpoint { display: flex; flex-direction: column; gap: 12px; }
 .endpoint h2, .card h2 { margin: 0; }

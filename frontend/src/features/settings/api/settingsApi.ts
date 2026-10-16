@@ -36,6 +36,18 @@ export const settingsApi = api.injectEndpoints({
 
     getInboundSettings: build.query<InboundSettings, void>({
       query: () => 'inbound/settings',
+      providesTags: ['Inbound'],
+    }),
+
+    // The old token stops working at once, so the URLs on the page reload with the new one.
+    setInboundToken: build.mutation<InboundSettings, string>({
+      query: (token) => ({ url: 'inbound/token', method: 'PUT', body: { token } }),
+      invalidatesTags: ['Inbound'],
+    }),
+
+    generateInboundToken: build.mutation<InboundSettings, void>({
+      query: () => ({ url: 'inbound/token/generate', method: 'POST' }),
+      invalidatesTags: ['Inbound'],
     }),
 
     // A mutation, not a query: every click should call the tracker again, not show a cached answer.
@@ -52,5 +64,7 @@ export const {
   useUpdateEndpointMutation,
   useResetEndpointMutation,
   useGetInboundSettingsQuery,
+  useSetInboundTokenMutation,
+  useGenerateInboundTokenMutation,
   usePingMutation,
 } = settingsApi;

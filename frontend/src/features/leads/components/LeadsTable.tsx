@@ -21,6 +21,7 @@ export default function LeadsTable({ leads, selectedId, onSelect }: Readonly<Pro
           <th>Contact</th>
           <th>Source</th>
           <th>Status</th>
+          <th>Outbound</th>
           <th>Amount</th>
           <th>Created</th>
         </tr>
@@ -37,6 +38,7 @@ export default function LeadsTable({ leads, selectedId, onSelect }: Readonly<Pro
             <td>{lead.email ?? lead.phone}</td>
             <td>{lead.source}</td>
             <td><StatusBadge status={lead.status} /></td>
+            <td>{lead.outbound_status ? <StatusBadge status={lead.outbound_status} /> : <span className="muted">—</span>}</td>
             <td>{formatAmount(lead.amount, lead.currency)}</td>
             <td>{formatDate(lead.created_at)}</td>
           </tr>

@@ -266,4 +266,30 @@ public class LeadServiceTests : IDisposable
 
         Assert.Equal(new[] { first.Id, last.Id }.Order(), page.Items.Select(l => l.Id).Order());
     }
+
+    private async Task AddEvent(int leadId, int endpointId, TrackerEventStatus status)
+    {
+        var trackerEvent = new TrackerEvent { EventId = $"conv_{leadId}_{endpointId}", LeadId = leadId, TrackerEndpointId = endpointId };
+        trackerEvent.Queue(DateTimeOffset.UtcNow);
+        if (status == TrackerEventStatus.Failed)
+            trackerEvent.MarkFailed("Tracker answered 422.");
+        _db.TrackerEvents.Add(trackerEvent);
+        await _db.SaveChangesAsync();
+    }
+
+    [Fact]
+    public async Task Outbound_status_is_null_without_events_and_the_newest_event_wins()
+    {
+        var withoutEvents = await SavedLead();
+        var withEvents = await SavedLead();
+        await AddEvent(withEvents.Id, endpointId: 1, TrackerEventStatus.Pending);
+        await AddEvent(withEvents.Id, endpointId: 2, TrackerEventStatus.Failed);
+
+        var page = await _service.GetAll(new LeadListQuery());
+
+        Assert.False(page.OutboundStatuses.ContainsKey(withoutEvents.Id));
+        Assert.Equal(TrackerEventStatus.Failed, page.OutboundStatuses[withEvents.Id]);
+        Assert.Null(await _service.GetOutboundStatus(withoutEvents.Id));
+        Assert.Equal(TrackerEventStatus.Failed, await _service.GetOutboundStatus(withEvents.Id));
+    }
 }

@@ -38,6 +38,7 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddScoped<LeadService>();
 builder.Services.AddScoped<TrackerEventQueue>();
 builder.Services.AddScoped<TrackerEventSender>();
+builder.Services.AddScoped<TrackerEventService>();
 builder.Services.AddScoped<TrackerEndpointService>();
 builder.Services.AddScoped<InboundLeadService>();
 // Outbox worker: sends saved events in the background, with retries.

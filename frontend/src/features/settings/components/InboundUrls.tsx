@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { errorMessage } from '../../../utils/apiError';
 import { useGetInboundSettingsQuery } from '../api/settingsApi';
+import TokenEditor from './TokenEditor';
 
 // A code block with a "Copy" button.
 function CopyBlock({ text }: Readonly<{ text: string }>) {
@@ -36,7 +37,8 @@ export default function InboundUrls() {
     return (
       <section className="card">
         <h2>Lead capture from your website</h2>
-        <p className="hint">No token yet. Restart the backend: it creates one at startup.</p>
+        <p className="hint">No token yet. Set one below, or restart the backend: it creates one at startup.</p>
+        <TokenEditor token={null} />
       </section>
     );
   }
@@ -73,14 +75,17 @@ export default function InboundUrls() {
       </p>
       <p className="macros">{data.fields.map((field) => <code key={field}>{field}</code>)}</p>
 
+      <TokenEditor token={data.token} />
+
       <h3>Pixel (image URL)</h3>
       <p className="hint">Put the values after each field name, URL-encoded. Returns a 1×1 transparent PNG.</p>
       <CopyBlock text={pixelUrl + emptyFields} />
       <CopyBlock text={pixelScript} />
 
-      <h3>Postback URL (POST with form fields)</h3>
+      <h3>Postback URL (GET or POST, with form fields or query parameters)</h3>
       <p className="hint">
-        For an HTML form, or for your own server. Returns 201 with the new lead as JSON; with a plain HTML form
+        For an HTML form, for your own server, or as a plain link. Send the fields as form fields (POST), in the
+        URL like the pixel (GET or POST), or both (a form field wins). Returns 201 with the new lead as JSON; with a plain HTML form
         the visitor sees that JSON, so to stay on your page, send it from your server or with fetch(). Source is
         "pixel" or "postback" when the form doesn't send one.
       </p>

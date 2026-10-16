@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { useDebounce } from '../../../hooks/useDebounce';
 import { errorMessage } from '../../../utils/apiError';
+import { formatStatus } from '../../../utils/format';
 import { usePreviewEndpointQuery, useResetEndpointMutation, useUpdateEndpointMutation } from '../api/settingsApi';
 import type { EndpointTemplates, TrackerEndpoint } from '../types';
 
@@ -70,7 +71,9 @@ export default function EndpointEditor({ endpoint }: Readonly<Props>) {
         <h2>{endpoint.name}</h2>
         <span className="muted">
           {endpoint.method}
-          {sendsForLead ? ` · sent when a lead becomes "${endpoint.trigger_status}"` : ' · not sent for a lead, no macros'}
+          {endpoint.trigger_status !== null
+            ? ` · sent when a lead becomes "${formatStatus(endpoint.trigger_status)}"`
+            : ' · not sent for a lead, no macros'}
         </span>
       </div>
 

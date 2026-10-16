@@ -2,19 +2,20 @@ import { useEffect, useState } from 'react';
 import { useDebounce } from '../../../hooks/useDebounce';
 import { errorMessage } from '../../../utils/apiError';
 import { useGetLeadsQuery, useGetStatusesQuery } from '../api/leadsApi';
-import Pagination from '../../../components/Pagination';
+import Pagination, { DEFAULT_PAGE_SIZE } from '../../../components/Pagination';
 import type { LeadFilterValues, LeadsQuery } from '../types';
 import LeadFilters, { emptyFilters } from './LeadFilters';
 import LeadsTable from './LeadsTable';
 import LeadForm from './LeadForm';
 import LeadPanel from './LeadPanel';
 
-const PAGE_SIZE = 20;
+const pollEveryMs = 3000;
 
 // Drops empty filters, so the URL only has the ones in use.
-function toQuery(filters: LeadFilterValues, page: number): LeadsQuery {
-  const used = Object.entries(filters).filter(([, value]) => value.trim() !== '');
-  const query: LeadsQuery = { ...Object.fromEntries(used), page, page_size: PAGE_SIZE };
+function toQuery({ currency, ...textFilters }: LeadFilterValues, page: number, pageSize: number): LeadsQuery {
+  const used = Object.entries(textFilters).filter(([, value]) => value.trim() !== '');
+  const query: LeadsQuery = { ...Object.fromEntries(used), page, page_size: pageSize };
+  if (currency.length > 0) query.currency = currency.join(',');
 
   // The date inputs give days in the user's time zone. The API wants exact moments:
   // the start of the "from" day and the end of the "to" day, in the user's time zone.
@@ -36,11 +37,20 @@ export default function LeadsPage() {
   const [filters, setFilters] = useState(emptyFilters);
   const debouncedFilters = useDebounce(filters, 300);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [panel, setPanel] = useState<Panel>({ mode: 'closed' });
 
-  const leads = useGetLeadsQuery(toQuery(debouncedFilters, page));
+  // While a lead on this page has a pending event, reload every few seconds so
+  // its "Outbound" column turns sent or failed without a page refresh.
+  const [pollingInterval, setPollingInterval] = useState(0);
+  const leads = useGetLeadsQuery(toQuery(debouncedFilters, page, pageSize), {
+    pollingInterval,
+    skipPollingIfUnfocused: true,
+  });
+  const hasPendingLead = leads.data?.items.some((lead) => lead.outbound_status === 'pending') ?? false;
+  useEffect(() => setPollingInterval(hasPendingLead ? pollEveryMs : 0), [hasPendingLead]);
   const statuses = useGetStatusesQuery();
-  const pageCount = Math.max(1, Math.ceil((leads.data?.total_count ?? 0) / PAGE_SIZE));
+  const pageCount = Math.max(1, Math.ceil((leads.data?.total_count ?? 0) / pageSize));
 
   // After deleting the only lead on the last page, that page is empty: go back one.
   // currentData is only set for the current filters and page, never for older ones.
@@ -51,6 +61,12 @@ export default function LeadsPage() {
   // New filters give a new result, so start again from page 1.
   const changeFilters = (newFilters: LeadFilterValues) => {
     setFilters(newFilters);
+    setPage(1);
+  };
+
+  // The old page number may not exist with the new size, so start from page 1.
+  const changePageSize = (newPageSize: number) => {
+    setPageSize(newPageSize);
     setPage(1);
   };
 
@@ -90,6 +106,8 @@ export default function LeadsPage() {
               pageCount={pageCount}
               totalCount={leads.data.total_count}
               onPageChange={setPage}
+              pageSize={pageSize}
+              onPageSizeChange={changePageSize}
             />
           </>
         )}

@@ -78,7 +78,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         {
             // Always row 1, set by the code, not an identity column.
             settings.Property(s => s.Id).ValueGeneratedNever();
-            settings.Property(s => s.Token).HasMaxLength(64);
+            settings.Property(s => s.Token).HasMaxLength(Models.InboundSettings.MaxTokenLength);
         });
     }
 }

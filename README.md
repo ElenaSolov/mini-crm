@@ -172,13 +172,14 @@ How the token and the limits work: see
 
 | Method | Path | What it does |
 |---|---|---|
-| GET | `/api/leads?name=&email=&phone=&source=&currency=&status=&id=&amount_from=&amount_to=&created_from=&created_to=&page=1&page_size=20` | List leads, newest first, one page at a time: `{ items, page, page_size, total_count }`. All filters optional. Text filters match part of the value and ignore case (`name=ann` finds "Joanna"); `status` and `id` are exact; amount (0–1,000,000,000) and created (exact moments like `2026-10-16T00:00:00Z`, both ends included; the UI turns the picked days into moments in the user's time zone) are ranges. `page` is 1–1,000,000, `page_size` is 1–100 |
+| GET | `/api/leads?name=&email=&phone=&source=&currency=&status=&id=&amount_from=&amount_to=&created_from=&created_to=&page=1&page_size=10` | List leads, newest first, one page at a time: `{ items, page, page_size, total_count }`. Each lead has `outbound_status`: the newest tracker event's status (`pending` / `sent` / `failed`), or `null` before the first conversion. All filters optional. Text filters match part of the value and ignore case (`name=ann` finds "Joanna"); `status` and `id` are exact; `currency` takes one or more codes, comma separated, exact (`currency=USD,EUR`); amount (0–1,000,000,000) and created (exact moments like `2026-10-16T00:00:00Z`, both ends included; the UI turns the picked days into moments in the user's time zone) are ranges. `page` is 1–1,000,000, `page_size` is 1–100 |
 | POST | `/api/leads` | Create a lead (always starts as `new`) |
 | GET | `/api/leads/{id}` | One lead |
 | PUT | `/api/leads/{id}` | Edit a lead's fields. Can't change status |
 | DELETE | `/api/leads/{id}` | Delete. 409 if the lead has tracker events |
 | POST | `/api/leads/{id}/status` | Change status: `{ "status": "converted", "simulate_server_error": false }` |
 | GET | `/api/leads/{id}/events` | The lead's outbound events with every attempt |
+| GET | `/api/events?status=&page=1&page_size=10` | All outbound events (the Logs page), newest first, with the lead's name and every attempt. `status` is optional: `pending`, `sent` or `failed` |
 | GET | `/api/leads/statuses` | Allowed statuses |
 | GET | `/api/tracker/ping` | Calls the tracker's `/ping` with the key |
 | GET | `/api/tracker/endpoints` | The tracker endpoints and their templates |
@@ -187,8 +188,10 @@ How the token and the limits work: see
 | PUT | `/api/tracker/endpoints/{id}` | Saves `{ "url_template", "body_template", "event_id_template" }`. `400` per field if a rule is broken |
 | POST | `/api/tracker/endpoints/{id}/reset` | Puts the templates back to the defaults |
 | GET | `/api/inbound/settings` | The token for the pixel and postback URLs, and the fields they take |
+| PUT | `/api/inbound/token` | Sets your own token: `{ "token": "..." }`, 16–64 characters, letters, digits, `-` and `_`. The old token stops working |
+| POST | `/api/inbound/token/generate` | Makes a new random token. The old token stops working |
 | GET | `/api/inbound/pixel.png?token=…&name=…&email=…` | Creates a lead from the query string and returns a 1×1 transparent PNG |
-| POST | `/api/inbound/postback?token=…` | Creates a lead from form fields (`application/x-www-form-urlencoded`), `201` with the lead |
+| GET, POST | `/api/inbound/postback?token=…` | Creates a lead from form fields (`application/x-www-form-urlencoded`) and/or query parameters (a form field wins), `201` with the lead. A JSON body is a `415` |
 
 Errors: bad input → `400` with the field names (`errors.email`, `errors.status`);
 a broken rule (e.g. converting a lost lead) → `409` with a readable message;
@@ -348,6 +351,10 @@ own website form, so new leads land in the CRM:
   with `Cache-Control: no-store`, so a cached image never skips a lead.
 - **Postback:** `POST /api/inbound/postback?token=…` with form fields, from an
   HTML `<form method="post">` or from the client's server (`curl -d name=Ann -d email=…`).
+  The fields can also go in the query string (`?token=…&name=Ann&email=…`), so a
+  form body is not required, and `GET` works too (e.g. opening the URL in a
+  browser). If a field is in both, the form field wins. A body that is not a
+  form (e.g. JSON) is a 415.
 
 Fields: `name`, `email`, `phone`, `source`, `amount`, `currency`, with the same
 rules as `POST /api/leads`. A new lead is always `new`; a `status` field is

@@ -21,6 +21,16 @@ public class InboundController(InboundLeadService inbound) : ControllerBase
     [HttpGet("settings")]
     public async Task<InboundSettingsResponse> GetSettings() => new(await inbound.GetToken(), InboundLeadService.Fields);
 
+    // The client picks their own token. A bad value is a 400 (see SetInboundTokenRequest).
+    [HttpPut("token")]
+    public async Task<InboundSettingsResponse> SetToken(SetInboundTokenRequest request) =>
+        new(await inbound.SetToken(request.Token!), InboundLeadService.Fields);
+
+    // A new random token, e.g. when the old one leaked.
+    [HttpPost("token/generate")]
+    public async Task<InboundSettingsResponse> GenerateToken() =>
+        new(await inbound.GenerateToken(), InboundLeadService.Fields);
+
     // Called by the browser as an image after the form is sent:
     // <img src="/api/inbound/pixel.png?token=...&name=Ann&email=ann@example.com">
     [HttpGet("pixel.png")]
@@ -34,13 +44,23 @@ public class InboundController(InboundLeadService inbound) : ControllerBase
         return File(PixelPng, "image/png");
     }
 
-    // Called by an HTML form (method="post") or by the client's server, with form fields.
-    // Anything else (e.g. JSON) is a 415, so a wrong setup gets a clear answer.
-    [HttpPost("postback")]
-    [Consumes("application/x-www-form-urlencoded", "multipart/form-data")]
+    // Called by an HTML form, by the client's server, or as a plain link (GET). The fields can be
+    // form fields, query parameters, or both (a form field wins when both have it).
+    // A body that is not a form (e.g. JSON) is a 415, so a wrong setup gets a clear answer.
+    [HttpGet("postback"), HttpPost("postback")]
     [InboundToken, EnableRateLimiting(RateLimitPolicy)]
-    public async Task<ActionResult<LeadResponse>> Postback([FromForm] SaveLeadRequest request)
+    public async Task<ActionResult<LeadResponse>> Postback()
     {
+        if (Request.ContentType is not null && !Request.HasFormContentType)
+            return Problem(statusCode: StatusCodes.Status415UnsupportedMediaType,
+                detail: "Send the fields as form fields or query parameters, not JSON.");
+
+        // Not a [FromForm] or [FromQuery] parameter: those read only one place. This reads
+        // the form first, then the query string, and runs the same checks as other requests.
+        var request = new SaveLeadRequest();
+        if (!await TryUpdateModelAsync(request))
+            return ValidationProblem(ModelState);
+
         var lead = await inbound.Create(request, InboundLeadService.PostbackSource);
         return CreatedAtAction(nameof(LeadsController.GetById), "Leads", new { id = lead.Id }, LeadResponse.From(lead));
     }

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { errorMessage, fieldErrors } from '../../../utils/apiError';
+import { formatStatus } from '../../../utils/format';
 import { useChangeStatusMutation } from '../api/leadsApi';
 import type { Lead, LeadStatus } from '../types';
 
@@ -61,7 +62,7 @@ export default function StatusChange({ lead, statuses }: Readonly<Props>) {
           disabled={isFinal}
         >
           {statuses.map((status) => (
-            <option key={status} value={status}>{status}</option>
+            <option key={status} value={status}>{formatStatus(status)}</option>
           ))}
         </select>
         <button className="primary" onClick={handleSave} disabled={isLoading || !canSave}>

@@ -23,10 +23,15 @@ Content-Type: application/json
   "currency": "USD"
 }
 
-### List leads. All filters are optional. name, email, phone, source and currency
-### match part of the value; status is exact; amount and created are ranges.
-### Answer: { items, page, page_size, total_count }. page_size is 1-100 (default 20).
-GET {{api}}/leads?status=new&source=face&name=ann&amount_from=100&created_from=2026-01-01T00:00:00Z&page=1&page_size=20
+### List leads. All filters are optional. name, email, phone and source match part
+### of the value; status is exact; currency is one or more codes, exact (USD,EUR);
+### amount and created are ranges.
+### Answer: { items, page, page_size, total_count }, each lead with outbound_status.
+### page_size is 1-100 (default 10).
+GET {{api}}/leads?status=new&source=face&name=ann&currency=USD,EUR&amount_from=100&created_from=2026-01-01T00:00:00Z&page=1&page_size=10
+
+### All outbound events (the Logs page), newest first. status is optional: pending, sent or failed
+GET {{api}}/events?status=failed&page=1&page_size=10
 
 ### Get one lead
 GET {{api}}/leads/{{leadId}}
@@ -149,3 +154,6 @@ POST {{api}}/inbound/postback?token={{inboundToken}}
 Content-Type: application/x-www-form-urlencoded
 
 name=Postback Lead&phone=%2B12025550123&amount=50&currency=USD
+
+### Lead capture: postback with GET and query parameters, no form (expect 201 and the new lead)
+GET {{api}}/inbound/postback?token={{inboundToken}}&name=Link%20Lead&email=link@example.com

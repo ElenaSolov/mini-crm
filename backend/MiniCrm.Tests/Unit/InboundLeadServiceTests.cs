@@ -79,6 +79,39 @@ public class InboundLeadServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task SetToken_replaces_the_token()
+    {
+        _service.EnsureToken();
+        var old = await _service.GetToken();
+
+        await _service.SetToken("my-own-token-value");
+
+        Assert.True(await _service.IsValidToken("my-own-token-value"));
+        Assert.False(await _service.IsValidToken(old));
+    }
+
+    [Fact]
+    public async Task SetToken_creates_the_row_if_it_was_deleted()
+    {
+        await _service.SetToken("my-own-token-value");
+
+        Assert.Equal("my-own-token-value", await _service.GetToken());
+    }
+
+    [Fact]
+    public async Task GenerateToken_makes_a_new_random_token()
+    {
+        _service.EnsureToken();
+        var old = await _service.GetToken();
+
+        var generated = await _service.GenerateToken();
+
+        Assert.NotEqual(old, generated);
+        Assert.Equal(64, generated.Length);
+        Assert.Equal(generated, await _service.GetToken());
+    }
+
+    [Fact]
     public async Task The_forms_own_source_wins()
     {
         var request = new SaveLeadRequest { Name = "Ann", Email = "ann@example.com", Source = "Landing" };

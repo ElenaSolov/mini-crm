@@ -14,6 +14,8 @@ export interface Lead {
   currency: string | null;
   created_at: string;
   updated_at: string;
+  // The newest tracker event's status; null before the first conversion.
+  outbound_status: TrackerEventStatus | null;
 }
 
 // What the form sends for create and edit. Status is not here: it changes only
@@ -29,6 +31,7 @@ export interface LeadInput {
 
 // The filter inputs, as typed. '' means "no filter". Text filters match part of
 // the value; amount and created are ranges (created as YYYY-MM-DD from the date input).
+// Currency is a list of picked codes, [] means "no filter".
 export interface LeadFilterValues {
   id: string;
   name: string;
@@ -36,15 +39,19 @@ export interface LeadFilterValues {
   phone: string;
   source: string;
   status: string;
-  currency: string;
+  currency: string[];
   amount_from: string;
   amount_to: string;
   created_from: string;
   created_to: string;
 }
 
+// Every filter except currency is a plain text input.
+export type LeadTextFilter = Exclude<keyof LeadFilterValues, 'currency'>;
+
 // The GET /api/leads query string. Empty filters are left out of the URL.
-export type LeadsQuery = Partial<LeadFilterValues> & { page: number; page_size: number };
+// Currency goes as one comma-separated value, e.g. "USD,EUR".
+export type LeadsQuery = Partial<Record<LeadTextFilter | 'currency', string>> & { page: number; page_size: number };
 
 export interface LeadPage {
   items: Lead[];
@@ -70,6 +77,7 @@ export interface TrackerAttempt {
 export interface TrackerEvent {
   id: number;
   event_id: string;
+  lead_id: number;
   endpoint: string | null;
   status: TrackerEventStatus;
   method: string;

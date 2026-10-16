@@ -1,4 +1,6 @@
-import type { LeadFilterValues, LeadStatus } from '../types';
+import { formatStatus } from '../../../utils/format';
+import type { LeadFilterValues, LeadStatus, LeadTextFilter } from '../types';
+import CurrencyFilter from './CurrencyFilter';
 
 export const emptyFilters: LeadFilterValues = {
   id: '',
@@ -7,7 +9,7 @@ export const emptyFilters: LeadFilterValues = {
   phone: '',
   source: '',
   status: '',
-  currency: '',
+  currency: [],
   amount_from: '',
   amount_to: '',
   created_from: '',
@@ -21,16 +23,15 @@ interface Props {
 }
 
 // Text fields match part of the value: "ann" finds "Joanna".
-const textFields: { key: keyof LeadFilterValues; label: string; placeholder: string }[] = [
+const textFields: { key: LeadTextFilter; label: string; placeholder: string }[] = [
   { key: 'name', label: 'Name', placeholder: 'e.g. ann' },
   { key: 'email', label: 'Email', placeholder: 'e.g. gmail' },
   { key: 'phone', label: 'Phone', placeholder: 'e.g. 555' },
   { key: 'source', label: 'Source', placeholder: 'e.g. face' },
-  { key: 'currency', label: 'Currency', placeholder: 'e.g. USD' },
 ];
 
 export default function LeadFilters({ statuses, filters, onChange }: Readonly<Props>) {
-  const set = (key: keyof LeadFilterValues, value: string) => onChange({ ...filters, [key]: value });
+  const set = (key: LeadTextFilter, value: string) => onChange({ ...filters, [key]: value });
 
   return (
     <div className="filters">
@@ -51,10 +52,12 @@ export default function LeadFilters({ statuses, filters, onChange }: Readonly<Pr
         <select value={filters.status} onChange={(e) => set('status', e.target.value)}>
           <option value="">All</option>
           {statuses.map((s) => (
-            <option key={s} value={s}>{s}</option>
+            <option key={s} value={s}>{formatStatus(s)}</option>
           ))}
         </select>
       </label>
+
+      <CurrencyFilter selected={filters.currency} onChange={(currency) => onChange({ ...filters, currency })} />
 
       <label className="filter-short">
         <span>Amount from</span>
