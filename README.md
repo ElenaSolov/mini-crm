@@ -45,16 +45,18 @@ The tracker URLs and auth header defaults are already filled in.
 
 ### 2. Database
 
-**Windows:** nothing to do.
+**Windows with LocalDB 13.0+:** nothing to do.
 
-**Mac/Linux:** start SQL Server in Docker, then uncomment the
-`ConnectionStrings__Default` line in `.env` (its password matches this command):
+**Mac/Linux, or Windows without a recent LocalDB:** start SQL Server in Docker, then uncomment the
+`ConnectionStrings__Default` line in `.env` (its password matches this command).
+
+Works the same in Bash and PowerShell:
 
 ```bash
-docker run -d --name minicrm-sql -p 1433:1433 \
-  -e "ACCEPT_EULA=Y" -e "MSSQL_SA_PASSWORD=Your_strong_pass1" \
-  mcr.microsoft.com/mssql/server:2022-latest
+docker run -d --name minicrm-sql -p 1433:1433 -e "ACCEPT_EULA=Y" -e "MSSQL_SA_PASSWORD=Your_strong_pass1" mcr.microsoft.com/mssql/server:2022-latest
 ```
+
+Docker Desktop must be running. Check the container with `docker ps`.
 
 The app creates the database and its starting data (lead statuses, tracker
 endpoints, auth header) when it starts.
@@ -141,14 +143,10 @@ Use [requests.http](requests.http), or curl:
 
 ```bash
 # Create a lead
-curl -s -X POST http://localhost:5080/api/leads \
-  -H "Content-Type: application/json" \
-  -d '{"name":"Ann Lee","email":"ann@example.com","amount":199.00,"currency":"USD","source":"facebook"}'
+curl -s -X POST http://localhost:5080/api/leads -H "Content-Type: application/json" -d '{"name":"Ann Lee","email":"ann@example.com","amount":199.00,"currency":"USD","source":"facebook"}'
 
 # Convert it (use the id from the answer above)
-curl -s -X POST http://localhost:5080/api/leads/1/status \
-  -H "Content-Type: application/json" \
-  -d '{"status":"converted"}'
+curl -s -X POST http://localhost:5080/api/leads/1/status -H "Content-Type: application/json" -d '{"status":"converted"}'
 
 # About 5 seconds later: the event and its attempts
 curl -s http://localhost:5080/api/leads/1/events
@@ -164,7 +162,7 @@ curl -s http://localhost:5080/api/leads/1/events
 | POST | `/api/leads` | Create a lead (always starts as `new`) |
 | GET | `/api/leads/{id}` | One lead |
 | PUT | `/api/leads/{id}` | Edit a lead. Can't change status |
-| DELETE | `/api/leads/{id}` | Delete. `409` if the lead has tracker events |
+| DELETE | `/api/leads/{id}` | Soft delete: the lead is hidden, its row and tracker events stay |
 | POST | `/api/leads/{id}/status` | Change status: `{ "status": "converted", "simulate_server_error": false }` |
 | GET | `/api/leads/{id}/events` | The lead's events with every attempt |
 | GET | `/api/events?status=` | All events, newest first (the Logs page) |
@@ -204,10 +202,7 @@ tracker directly. Set the key in your shell only, never in a file:
 
 ```bash
 export TRACKER_API_KEY=<your key>
-curl -s -X POST https://bipro2interface.sseku.com/api/candidate-tracker/conversions \
-  -H "Authorization: Bearer $TRACKER_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"event_id":"conv_test_422","event_name":"purchase"}'
+curl -s -X POST https://bipro2interface.sseku.com/api/candidate-tracker/conversions -H "Authorization: Bearer $TRACKER_API_KEY" -H "Content-Type: application/json" -d '{"event_id":"conv_test_422","event_name":"purchase"}'
 ```
 
 **Step 5:** only the first attempt gets the `simulate` field. The saved body
@@ -373,7 +368,9 @@ These URLs are public, so:
 - **Status only changes through `POST /api/leads/{id}/status`.** A new lead
   always starts as `new`.
 - **A converted lead must keep its amount**, or **Convert again** would fail.
-- **A lead with tracker events can't be deleted** (`409`), to keep the history.
+- **Delete is a soft delete.** The lead gets a `DeletedAt` and disappears from the
+  API (404), but the row and its tracker events stay, so the Logs page keeps the
+  history. Events already queued are still sent: the conversion really happened.
 - **`source` is free text**, saved trimmed and in lower case, so `Facebook` and
   `facebook` are the same.
 - **An empty field is sent as an empty string**, e.g. `"phone": ""`.
