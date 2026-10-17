@@ -26,8 +26,10 @@ public class TrackerEventService(AppDbContext db)
             .ToListAsync();
 
         // A second small query, so the page can show who each event is for.
+        // Deleted leads too: their events stay in the log.
         var leadIds = events.Select(e => e.LeadId).Distinct().ToList();
         var leadNames = await db.Leads
+            .IgnoreQueryFilters()
             .Where(l => leadIds.Contains(l.Id))
             .ToDictionaryAsync(l => l.Id, l => l.Name);
 

@@ -66,7 +66,8 @@ public class ApiFactory : WebApplicationFactory<Program>
 
         await db.TrackerAttempts.ExecuteDeleteAsync();
         await db.TrackerEvents.ExecuteDeleteAsync();
-        await db.Leads.ExecuteDeleteAsync();
+        // IgnoreQueryFilters: soft-deleted leads must go too, the filter would skip them.
+        await db.Leads.IgnoreQueryFilters().ExecuteDeleteAsync();
 
         var defaultStatuses = DefaultLeadStatuses.All().Select(s => s.Name).ToList();
         await db.LeadStatuses.Where(s => !defaultStatuses.Contains(s.Name)).ExecuteDeleteAsync();

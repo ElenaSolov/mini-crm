@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using MiniCrm.Api.Data;
 using MiniCrm.Api.Dtos;
 using MiniCrm.Api.Models;
@@ -47,6 +48,18 @@ public class TrackerEventServiceTests : IDisposable
         Assert.Equal([bob.Id, ann.Id], page.Items.Select(e => e.Id));
         Assert.Equal("Ann", page.LeadNames[ann.LeadId]);
         Assert.Equal("Bob", page.LeadNames[bob.LeadId]);
+    }
+
+    [Fact]
+    public async Task Keeps_the_name_of_a_deleted_lead()
+    {
+        var ann = await ConvertedLeadWithEvent("Ann");
+        (await _db.Leads.SingleAsync()).DeletedAt = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync();
+
+        var page = await _service.GetAll(new TrackerEventListQuery());
+
+        Assert.Equal("Ann", page.LeadNames[ann.LeadId]);
     }
 
     [Fact]

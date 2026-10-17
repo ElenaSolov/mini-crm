@@ -17,6 +17,10 @@ public class Lead
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 
+    // Soft delete: the row stays (its tracker events point to it), but the app
+    // no longer shows it. AppDbContext hides leads with a DeletedAt from every query.
+    public DateTimeOffset? DeletedAt { get; set; }
+
     // Changed by SQL Server on every update. If two requests edit the same lead
     // at once, the second save fails instead of silently overwriting the first.
     public byte[] RowVersion { get; set; } = [];

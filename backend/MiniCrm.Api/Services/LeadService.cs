@@ -62,7 +62,7 @@ public class LeadService(AppDbContext db, TrackerEventQueue eventQueue)
         return new LeadPage(items, outboundStatuses, totalCount);
     }
 
-    public async Task<Lead?> GetById(int id) => await db.Leads.FindAsync(id);
+    public async Task<Lead?> GetById(int id) => await FindLead(id);
 
     // Null when the lead has no tracker event yet.
     public async Task<TrackerEventStatus?> GetOutboundStatus(int leadId) =>
@@ -94,7 +94,7 @@ public class LeadService(AppDbContext db, TrackerEventQueue eventQueue)
 
     public async Task<LeadResult> Update(int id, SaveLeadRequest request)
     {
-        var lead = await db.Leads.FindAsync(id);
+        var lead = await FindLead(id);
         if (lead is null)
             return LeadResult.Missing();
 
@@ -109,21 +109,22 @@ public class LeadService(AppDbContext db, TrackerEventQueue eventQueue)
 
     public async Task<LeadResult> Delete(int id)
     {
-        var lead = await db.Leads.FindAsync(id);
+        var lead = await FindLead(id);
         if (lead is null)
             return LeadResult.Missing();
 
-        if (await db.TrackerEvents.AnyAsync(e => e.LeadId == id))
-            return LeadResult.Conflict("This lead has tracker events, so it can't be deleted. They are kept as an audit trail.");
-
-        db.Leads.Remove(lead);
+        // Soft delete: the row and its tracker events stay as the audit trail.
+        // Events already queued are still sent: the conversion really happened.
+        var now = DateTimeOffset.UtcNow;
+        lead.DeletedAt = now;
+        lead.UpdatedAt = now;
 
         return await Save(lead);
     }
 
     public async Task<LeadResult> ChangeStatus(int id, string newStatus, bool simulateServerError = false)
     {
-        var lead = await db.Leads.FindAsync(id);
+        var lead = await FindLead(id);
         if (lead is null)
             return LeadResult.Missing();
 
@@ -162,6 +163,10 @@ public class LeadService(AppDbContext db, TrackerEventQueue eventQueue)
             .OrderByDescending(e => e.Id)
             .ToListAsync();
     }
+
+    // Not FindAsync: it can return a lead this context already tracks without asking
+    // the database, and then the "not deleted" filter would be skipped.
+    private Task<Lead?> FindLead(int id) => db.Leads.SingleOrDefaultAsync(l => l.Id == id);
 
     private async Task<LeadResult> Save(Lead lead)
     {

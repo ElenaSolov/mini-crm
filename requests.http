@@ -98,7 +98,7 @@ GET {{api}}/leads/{{leadId}}/events
 ### Allowed statuses
 GET {{api}}/leads/statuses
 
-### Delete a lead (409 if it has tracker events)
+### Delete a lead (soft delete: hidden from the API, its tracker events stay)
 DELETE {{api}}/leads/{{leadId}}
 
 ### Rule check: a lead with no amount. Converting it gives 409.

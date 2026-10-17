@@ -35,6 +35,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             lead.Property(l => l.Status).HasMaxLength(LeadStatus.MaxNameLength);
             lead.HasOne<LeadStatus>().WithMany().HasForeignKey(l => l.Status).OnDelete(DeleteBehavior.Restrict);
             lead.Property(l => l.RowVersion).IsRowVersion();
+            // Every lead query skips deleted leads, so no endpoint can read or change one by mistake.
+            // IgnoreQueryFilters() turns it off where deleted leads are still needed (the Logs page).
+            lead.HasQueryFilter(l => l.DeletedAt == null);
         });
 
         modelBuilder.Entity<TrackerEndpoint>(endpoint =>
@@ -59,7 +62,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             // One event per lead and endpoint: converting again reuses it.
             trackerEvent.HasIndex(e => new { e.LeadId, e.TrackerEndpointId }).IsUnique();
 
-            // Restrict: a lead with events can't be deleted, the events are the audit trail.
+            // Restrict: leads are only soft deleted, so the row an event points to never goes away.
             trackerEvent.HasOne<Lead>().WithMany().HasForeignKey(e => e.LeadId).OnDelete(DeleteBehavior.Restrict);
             trackerEvent.HasOne(e => e.TrackerEndpoint).WithMany().HasForeignKey(e => e.TrackerEndpointId)
                 .OnDelete(DeleteBehavior.Restrict);

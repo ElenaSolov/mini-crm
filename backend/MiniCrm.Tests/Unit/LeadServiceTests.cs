@@ -178,19 +178,7 @@ public class LeadServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task Lead_with_events_cannot_be_deleted()
-    {
-        var lead = await SavedLead();
-        await _service.ChangeStatus(lead.Id, LeadStatusNames.Converted);
-
-        var result = await _service.Delete(lead.Id);
-
-        Assert.Equal(LeadOutcome.Conflict, result.Outcome);
-        Assert.Single(_db.Leads);
-    }
-
-    [Fact]
-    public async Task Lead_without_events_can_be_deleted()
+    public async Task Delete_is_soft_the_row_stays_with_a_deleted_at()
     {
         var lead = await SavedLead();
 
@@ -198,6 +186,33 @@ public class LeadServiceTests : IDisposable
 
         Assert.Equal(LeadOutcome.Success, result.Outcome);
         Assert.Empty(_db.Leads);
+        Assert.NotNull((await _db.Leads.IgnoreQueryFilters().SingleAsync()).DeletedAt);
+    }
+
+    [Fact]
+    public async Task Converted_lead_can_be_deleted_and_keeps_its_event()
+    {
+        var lead = await SavedLead();
+        await _service.ChangeStatus(lead.Id, LeadStatusNames.Converted);
+
+        var result = await _service.Delete(lead.Id);
+
+        Assert.Equal(LeadOutcome.Success, result.Outcome);
+        Assert.Equal(lead.Id, (await _db.TrackerEvents.SingleAsync()).LeadId);
+    }
+
+    [Fact]
+    public async Task Deleted_lead_is_not_found_anywhere()
+    {
+        var lead = await SavedLead();
+        await _service.Delete(lead.Id);
+
+        Assert.Null(await _service.GetById(lead.Id));
+        Assert.Empty((await _service.GetAll(new LeadListQuery())).Items);
+        Assert.Equal(LeadOutcome.NotFound, (await _service.Update(lead.Id, new SaveLeadRequest { Name = "Ann" })).Outcome);
+        Assert.Equal(LeadOutcome.NotFound, (await _service.ChangeStatus(lead.Id, LeadStatusNames.Converted)).Outcome);
+        Assert.Equal(LeadOutcome.NotFound, (await _service.Delete(lead.Id)).Outcome);
+        Assert.Null(await _service.GetEvents(lead.Id));
     }
 
     [Fact]

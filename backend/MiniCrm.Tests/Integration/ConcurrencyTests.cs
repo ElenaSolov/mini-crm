@@ -94,4 +94,32 @@ public class ConcurrencyTests(ApiFactory factory) : ApiTestBase(factory)
         else
             Assert.Empty(events);
     }
+
+    // Soft delete is an update, so the row version picks one winner, like any other edit.
+    [Fact]
+    public async Task Delete_and_convert_at_the_same_time_never_fail_with_a_server_error()
+    {
+        var lead = await CreateLead();
+
+        var responses = await Task.WhenAll(
+            Client.DeleteAsync($"/api/leads/{lead.Id}"), ChangeStatus(lead.Id, "converted"));
+
+        Assert.All(responses, r => Assert.Contains(r.StatusCode,
+            new[] { HttpStatusCode.OK, HttpStatusCode.NoContent, HttpStatusCode.Conflict, HttpStatusCode.NotFound }));
+        // The row version lets at least one of them through, never neither.
+        Assert.Contains(responses, r => r.IsSuccessStatusCode);
+    }
+
+    [Fact]
+    public async Task Parallel_deletes_succeed_once()
+    {
+        var lead = await CreateLead();
+
+        var responses = await Task.WhenAll(
+            Enumerable.Range(0, ParallelRequests).Select(_ => Client.DeleteAsync($"/api/leads/{lead.Id}")));
+
+        Assert.Single(responses, r => r.StatusCode == HttpStatusCode.NoContent);
+        Assert.All(responses, r => Assert.Contains(r.StatusCode,
+            new[] { HttpStatusCode.NoContent, HttpStatusCode.Conflict, HttpStatusCode.NotFound }));
+    }
 }

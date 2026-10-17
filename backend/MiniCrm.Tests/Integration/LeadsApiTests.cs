@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using Microsoft.EntityFrameworkCore;
 using MiniCrm.Api.Dtos;
 
 namespace MiniCrm.Tests.Integration;
@@ -204,21 +205,28 @@ public class LeadsApiTests(ApiFactory factory) : ApiTestBase(factory)
     }
 
     [Fact]
-    public async Task Delete_removes_a_lead_without_events()
+    public async Task Delete_hides_the_lead_but_keeps_the_row()
     {
         var lead = await CreateLead();
 
         Assert.Equal(HttpStatusCode.NoContent, (await Client.DeleteAsync($"/api/leads/{lead.Id}")).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await Client.GetAsync($"/api/leads/{lead.Id}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await Client.DeleteAsync($"/api/leads/{lead.Id}")).StatusCode);
+        await WithDb(async db =>
+            Assert.NotNull((await db.Leads.IgnoreQueryFilters().SingleAsync(l => l.Id == lead.Id)).DeletedAt));
     }
 
     [Fact]
-    public async Task Delete_of_a_converted_lead_is_409()
+    public async Task Delete_of_a_converted_lead_keeps_its_event_in_the_logs()
     {
         var lead = await CreateLead();
         await ChangeStatus(lead.Id, "converted");
 
-        Assert.Equal(HttpStatusCode.Conflict, (await Client.DeleteAsync($"/api/leads/{lead.Id}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await Client.DeleteAsync($"/api/leads/{lead.Id}")).StatusCode);
+        var logs = await Client.GetFromJsonAsync<TrackerEventPageResponse>("/api/events", Json);
+        var item = Assert.Single(logs!.Items);
+        Assert.Equal(lead.Id, item.Event.LeadId);
+        Assert.Equal(lead.Name, item.LeadName);
     }
 
     [Fact]
