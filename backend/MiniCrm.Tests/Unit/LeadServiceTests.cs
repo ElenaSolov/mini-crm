@@ -44,7 +44,7 @@ public class LeadServiceTests : IDisposable
         Assert.Equal($"conv_{lead.Id}", trackerEvent.EventId);
         Assert.Equal(TrackerEventStatus.Pending, trackerEvent.Status);
         Assert.Equal("POST", trackerEvent.Method);
-        Assert.Equal(DefaultEndpoints.BaseUrl + "/conversions", trackerEvent.Url);
+        Assert.Equal(TestData.ConversionsUrl, trackerEvent.Url);
         Assert.Contains($"\"event_id\": \"conv_{lead.Id}\"", trackerEvent.Body);
         Assert.Contains("\"amount\": 199.00", trackerEvent.Body);
         Assert.NotNull(trackerEvent.NextAttemptAt);
@@ -78,7 +78,7 @@ public class LeadServiceTests : IDisposable
         trackerEvent.RecordAttempt(new TrackerAttempt { StatusCode = 422, AttemptedAt = DateTimeOffset.UtcNow });
         await _db.SaveChangesAsync();
 
-        var purchase = await _db.TrackerEndpoints.SingleAsync(e => e.Name == DefaultEndpoints.PurchaseName);
+        var purchase = await _db.TrackerEndpoints.SingleAsync(e => e.Name == TrackerDefaults.PurchaseName);
         purchase.UrlTemplate = "https://tracker.test/fixed";
         purchase.EventIdTemplate = "other_{lead_id}";
         await _service.Update(lead.Id, new SaveLeadRequest
@@ -102,13 +102,13 @@ public class LeadServiceTests : IDisposable
     {
         var lead = await SavedLead();
         await _service.ChangeStatus(lead.Id, LeadStatusNames.Converted);
-        var purchase = await _db.TrackerEndpoints.SingleAsync(e => e.Name == DefaultEndpoints.PurchaseName);
+        var purchase = await _db.TrackerEndpoints.SingleAsync(e => e.Name == TrackerDefaults.PurchaseName);
         purchase.UrlTemplate = "https://tracker.test/fixed";
 
         await _service.ChangeStatus(lead.Id, LeadStatusNames.Converted);
 
         var trackerEvent = await _db.TrackerEvents.SingleAsync();
-        Assert.Equal(DefaultEndpoints.BaseUrl + "/conversions", trackerEvent.Url);
+        Assert.Equal(TestData.ConversionsUrl, trackerEvent.Url);
     }
 
     [Fact]
@@ -124,7 +124,7 @@ public class LeadServiceTests : IDisposable
     [Fact]
     public async Task Inactive_endpoint_queues_no_event()
     {
-        var purchase = await _db.TrackerEndpoints.SingleAsync(e => e.Name == DefaultEndpoints.PurchaseName);
+        var purchase = await _db.TrackerEndpoints.SingleAsync(e => e.Name == TrackerDefaults.PurchaseName);
         purchase.IsActive = false;
         var lead = await SavedLead();
 
@@ -136,7 +136,7 @@ public class LeadServiceTests : IDisposable
     [Fact]
     public async Task Body_template_that_renders_invalid_json_makes_a_failed_event()
     {
-        var purchase = await _db.TrackerEndpoints.SingleAsync(e => e.Name == DefaultEndpoints.PurchaseName);
+        var purchase = await _db.TrackerEndpoints.SingleAsync(e => e.Name == TrackerDefaults.PurchaseName);
         purchase.BodyTemplate = """{"event_id":"{event_id}","source":{source}}""";
         var lead = await SavedLead(l => l.Source = null);
 

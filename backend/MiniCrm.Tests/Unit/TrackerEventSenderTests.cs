@@ -24,7 +24,7 @@ public class TrackerEventSenderTests : IDisposable
         var config = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?> { ["Tracker:ApiKey"] = "test-key" })
             .Build();
-        var client = new TrackerClient(new HttpClient(_tracker), config);
+        var client = new TrackerClient(new HttpClient(_tracker), new TrackerAuthService(_db, TestData.Defaults(), config));
         _sender = new TrackerEventSender(_db, client, NullLogger<TrackerEventSender>.Instance);
     }
 

@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using MiniCrm.Api.Data;
 using MiniCrm.Api.Services;
+using MiniCrm.Tests.Fakes;
 
 namespace MiniCrm.Tests.Integration;
 
@@ -17,7 +18,7 @@ public class TrackerPingApiTests(ApiFactory factory) : ApiTestBase(factory)
 
         var request = Assert.Single(Factory.Tracker.Requests);
         Assert.Equal(HttpMethod.Get, request.Method);
-        Assert.Equal(DefaultEndpoints.BaseUrl + "/ping", request.Url);
+        Assert.Equal(TestData.PingUrl, request.Url);
         Assert.Equal($"Bearer {ApiFactory.TestApiKey}", request.Authorization);
         Assert.Equal(200, response!.StatusCode);
         Assert.Equal("""{"ok":true,"candidate":"test"}""", response.Body);

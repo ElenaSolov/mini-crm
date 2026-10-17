@@ -6,10 +6,11 @@ using MiniCrm.Api.Models;
 
 namespace MiniCrm.Api.Services;
 
-// Settings page use cases: list, preview, edit and reset the tracker endpoint templates.
+// Settings page use cases: list, preview, edit and reset the tracker endpoint templates,
+// and adding the .env defaults at startup.
 // Templates are checked with a sample lead, so a bad template is rejected on save,
 // not found later when a real lead converts.
-public class TrackerEndpointService(AppDbContext db)
+public class TrackerEndpointService(AppDbContext db, TrackerDefaults defaults)
 {
     public const string UrlField = "url_template";
     public const string BodyField = "body_template";
@@ -30,6 +31,27 @@ public class TrackerEndpointService(AppDbContext db)
         Amount = 199.00m,
         Currency = "USD"
     };
+
+    // Called once at startup. Adds the .env defaults for the endpoints the database doesn't
+    // have yet (on a new database: all of them). Saved rows are left as they are, so after
+    // the first start the database is used, and .env is only what "Reset to default" puts back.
+    // The defaults are checked with the same rules as a save on every start, so a typo in
+    // .env stops the app with a clear message, not a failed event later.
+    public void AddMissingDefaults()
+    {
+        var all = defaults.All();
+        foreach (var endpoint in all)
+        {
+            var errors = Validate(endpoint, SaveTrackerEndpointRequest.From(endpoint));
+            if (errors.Count > 0)
+                throw new InvalidOperationException(
+                    $"The .env default for the '{endpoint.Name}' endpoint is not valid: {string.Join(" ", errors.Values)}");
+        }
+
+        var saved = db.TrackerEndpoints.Select(e => e.Name).ToList();
+        db.TrackerEndpoints.AddRange(all.Where(e => !saved.Contains(e.Name)));
+        db.SaveChanges();
+    }
 
     public async Task<List<TrackerEndpoint>> GetAll() =>
         await db.TrackerEndpoints.AsNoTracking().OrderBy(e => e.Id).ToListAsync();
@@ -64,33 +86,33 @@ public class TrackerEndpointService(AppDbContext db)
         if (errors.Count > 0)
             return TrackerEndpointResult.Invalid(errors);
 
-        await SaveTemplates(endpoint, request.UrlTemplate, request.BodyTemplate, request.EventIdTemplate);
+        await SaveTemplates(endpoint, request);
         return TrackerEndpointResult.Success(endpoint);
     }
 
-    // Puts the templates back to the values from DefaultEndpoints (the same ones the migration seeds).
+    // Puts the templates back to the defaults (the URL comes from .env).
     public async Task<TrackerEndpointResult> Reset(int id)
     {
         var endpoint = await db.TrackerEndpoints.FindAsync(id);
         if (endpoint is null)
             return TrackerEndpointResult.Missing();
 
-        var defaults = DefaultEndpoints.All().SingleOrDefault(d => d.Name == endpoint.Name);
-        if (defaults is null)
+        var defaultEndpoint = defaults.All().SingleOrDefault(d => d.Name == endpoint.Name);
+        if (defaultEndpoint is null)
             return TrackerEndpointResult.Conflict($"The endpoint '{endpoint.Name}' has no default to reset to.");
 
-        await SaveTemplates(endpoint, defaults.UrlTemplate, defaults.BodyTemplate, defaults.EventIdTemplate);
+        await SaveTemplates(endpoint, SaveTrackerEndpointRequest.From(defaultEndpoint));
         return TrackerEndpointResult.Success(endpoint);
     }
 
     // EF normally writes only the columns that changed. Two saves at the same time could
     // then leave a mix: one save's URL with the other's body, which nobody saved or checked
     // together. Writing all three makes the row always one save's templates ("last save wins").
-    private async Task SaveTemplates(TrackerEndpoint endpoint, string url, string? body, string eventId)
+    private async Task SaveTemplates(TrackerEndpoint endpoint, SaveTrackerEndpointRequest request)
     {
-        endpoint.UrlTemplate = url;
-        endpoint.BodyTemplate = body;
-        endpoint.EventIdTemplate = eventId;
+        endpoint.UrlTemplate = request.UrlTemplate;
+        endpoint.BodyTemplate = request.BodyTemplate;
+        endpoint.EventIdTemplate = request.EventIdTemplate;
 
         var entry = db.Entry(endpoint);
         entry.Property(e => e.UrlTemplate).IsModified = true;

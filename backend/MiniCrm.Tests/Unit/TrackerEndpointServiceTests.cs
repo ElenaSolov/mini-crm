@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using MiniCrm.Api.Data;
 using MiniCrm.Api.Dtos;
 using MiniCrm.Api.Models;
@@ -18,23 +19,18 @@ public class TrackerEndpointServiceTests : IDisposable
 
     public TrackerEndpointServiceTests()
     {
-        _service = new TrackerEndpointService(_db);
+        _service = new TrackerEndpointService(_db, TestData.Defaults());
     }
 
     public void Dispose() => _db.Dispose();
 
-    private static TrackerEndpoint Purchase() => DefaultEndpoints.All().Single(e => e.Name == DefaultEndpoints.PurchaseName);
-    private static TrackerEndpoint Ping() => DefaultEndpoints.All().Single(e => e.Name == DefaultEndpoints.PingName);
+    private static TrackerEndpoint Purchase() => TestData.DefaultPurchase();
+    private static TrackerEndpoint Ping() => TestData.DefaultPing();
 
     // The default purchase templates, with one change.
     private static SaveTrackerEndpointRequest PurchaseRequest(Action<SaveTrackerEndpointRequest>? change = null)
     {
-        var request = new SaveTrackerEndpointRequest
-        {
-            UrlTemplate = Purchase().UrlTemplate,
-            BodyTemplate = Purchase().BodyTemplate,
-            EventIdTemplate = Purchase().EventIdTemplate
-        };
+        var request = SaveTrackerEndpointRequest.From(Purchase());
         change?.Invoke(request);
         return request;
     }
@@ -43,7 +39,7 @@ public class TrackerEndpointServiceTests : IDisposable
     public void Default_templates_are_valid()
     {
         Assert.Empty(TrackerEndpointService.Validate(Purchase(), PurchaseRequest()));
-        Assert.Empty(TrackerEndpointService.Validate(Ping(), new SaveTrackerEndpointRequest { UrlTemplate = Ping().UrlTemplate }));
+        Assert.Empty(TrackerEndpointService.Validate(Ping(), SaveTrackerEndpointRequest.From(Ping())));
     }
 
     [Fact]
@@ -153,7 +149,7 @@ public class TrackerEndpointServiceTests : IDisposable
     {
         var errors = TrackerEndpointService.Validate(Ping(), new SaveTrackerEndpointRequest
         {
-            UrlTemplate = DefaultEndpoints.BaseUrl + "/ping?lead={lead_id}",
+            UrlTemplate = TestData.PingUrl + "?lead={lead_id}",
             BodyTemplate = "{}",
             EventIdTemplate = "ping_{lead_id}"
         });
@@ -193,17 +189,16 @@ public class TrackerEndpointServiceTests : IDisposable
     [Fact]
     public async Task Two_saves_leave_the_last_ones_templates_not_a_mix()
     {
-        var options = new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
-        await using var dbA = new AppDbContext(options);
-        await using var dbB = new AppDbContext(options);
-        dbA.Database.EnsureCreated();
+        var databaseName = Guid.NewGuid().ToString();
+        await using var dbA = TestData.InMemoryDb(databaseName);
+        await using var dbB = TestData.InMemoryDb(databaseName);
         await dbA.TrackerEndpoints.FindAsync(PurchaseId); // both load the row before either saves
         await dbB.TrackerEndpoints.FindAsync(PurchaseId);
 
-        await new TrackerEndpointService(dbA).Update(PurchaseId, PurchaseRequest(r => r.UrlTemplate = "https://tracker.test/a"));
-        await new TrackerEndpointService(dbB).Update(PurchaseId, PurchaseRequest(r => r.BodyTemplate = """{"event_id":"{event_id}","b":1}"""));
+        await new TrackerEndpointService(dbA, TestData.Defaults()).Update(PurchaseId, PurchaseRequest(r => r.UrlTemplate = "https://tracker.test/a"));
+        await new TrackerEndpointService(dbB, TestData.Defaults()).Update(PurchaseId, PurchaseRequest(r => r.BodyTemplate = """{"event_id":"{event_id}","b":1}"""));
 
-        await using var check = new AppDbContext(options);
+        await using var check = TestData.InMemoryDb(databaseName);
         var saved = await check.TrackerEndpoints.SingleAsync(e => e.Id == PurchaseId);
         Assert.Equal(Purchase().UrlTemplate, saved.UrlTemplate); // B's URL, not A's
         Assert.Equal("""{"event_id":"{event_id}","b":1}""", saved.BodyTemplate);
@@ -254,7 +249,7 @@ public class TrackerEndpointServiceTests : IDisposable
 
         Assert.NotNull(preview);
         Assert.Equal("purchase_42", preview.EventId);
-        Assert.Equal(DefaultEndpoints.BaseUrl + "/conversions", preview.Url);
+        Assert.Equal(TestData.ConversionsUrl, preview.Url);
         Assert.Contains("\"event_id\": \"purchase_42\"", preview.Body);
         Assert.Contains("\"email\": \"lead@example.com\"", preview.Body);
         Assert.Empty(preview.Errors);
@@ -272,10 +267,63 @@ public class TrackerEndpointServiceTests : IDisposable
     [Fact]
     public async Task Preview_of_ping_has_no_event_id()
     {
-        var preview = await _service.Preview(PingId, new SaveTrackerEndpointRequest { UrlTemplate = Ping().UrlTemplate });
+        var preview = await _service.Preview(PingId, SaveTrackerEndpointRequest.From(Ping()));
 
         Assert.Null(preview!.EventId);
         Assert.Null(preview.Body);
         Assert.Empty(preview.Errors);
+    }
+
+    [Fact]
+    public void Api_key_can_not_be_put_in_the_url_or_the_body()
+    {
+        var errors = TrackerEndpointService.Validate(Purchase(), PurchaseRequest(r =>
+        {
+            r.UrlTemplate = "https://tracker.test/c?key={api_key}";
+            r.BodyTemplate = """{"event_id":"{event_id}","key":"{api_key}"}""";
+        }));
+
+        Assert.Equal("Unknown macro: {api_key}.", errors[TrackerEndpointService.UrlField]);
+        Assert.Equal("Unknown macro: {api_key}.", errors[TrackerEndpointService.BodyField]);
+    }
+
+    [Fact]
+    public void Startup_adds_the_env_defaults_to_an_empty_table()
+    {
+        _db.TrackerEndpoints.RemoveRange(_db.TrackerEndpoints);
+        _db.SaveChanges();
+
+        _service.AddMissingDefaults();
+
+        var endpoints = _db.TrackerEndpoints.AsNoTracking().OrderBy(e => e.Name).ToList();
+        Assert.Equal([TrackerDefaults.PingName, TrackerDefaults.PurchaseName], endpoints.Select(e => e.Name));
+        Assert.Equal(TestData.ConversionsUrl, endpoints[1].UrlTemplate);
+    }
+
+    [Fact]
+    public async Task Startup_keeps_saved_endpoints_and_adds_only_missing_ones()
+    {
+        await _service.Update(PurchaseId, PurchaseRequest(r => r.UrlTemplate = "https://tracker.test/saved"));
+        _db.TrackerEndpoints.Remove(await _db.TrackerEndpoints.SingleAsync(e => e.Id == PingId));
+        await _db.SaveChangesAsync();
+
+        _service.AddMissingDefaults();
+
+        var endpoints = _db.TrackerEndpoints.AsNoTracking().ToList();
+        Assert.Equal("https://tracker.test/saved", endpoints.Single(e => e.Name == TrackerDefaults.PurchaseName).UrlTemplate);
+        Assert.Equal(TestData.PingUrl, endpoints.Single(e => e.Name == TrackerDefaults.PingName).UrlTemplate);
+    }
+
+    [Theory]
+    [InlineData("Tracker:ConversionsUrl", null)]                        // missing in .env
+    [InlineData("Tracker:ConversionsUrl", "http://tracker.test/conversions")] // not https
+    public void Startup_stops_when_an_env_default_is_missing_or_invalid(string key, string? value)
+    {
+        var settings = new Dictionary<string, string?>(TestData.TrackerSettings) { [key] = value };
+        var defaults = new TrackerDefaults(new ConfigurationBuilder().AddInMemoryCollection(settings).Build());
+
+        var error = Assert.Throws<InvalidOperationException>(() => new TrackerEndpointService(_db, defaults).AddMissingDefaults());
+
+        Assert.Contains(value is null ? "Tracker__ConversionsUrl is not set" : "is not valid", error.Message);
     }
 }

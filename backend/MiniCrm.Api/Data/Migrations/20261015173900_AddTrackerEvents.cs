@@ -94,14 +94,9 @@ namespace MiniCrm.Api.Data.Migrations
                         onDelete: ReferentialAction.Cascade);
                 });
 
-            migrationBuilder.InsertData(
-                table: "TrackerEndpoints",
-                columns: new[] { "Id", "BodyTemplate", "EventIdTemplate", "IsActive", "Method", "Name", "TriggerStatus", "UrlTemplate" },
-                values: new object[,]
-                {
-                    { 1, null, "", true, "GET", "ping", null, "https://bipro2interface.sseku.com/api/candidate-tracker/ping" },
-                    { 2, "{\n  \"event_id\": \"{event_id}\",\n  \"event_name\": \"purchase\",\n  \"email\": \"{email}\",\n  \"phone\": \"{phone}\",\n  \"lead_id\": \"{lead_id}\",\n  \"amount\": {amount},\n  \"currency\": \"{currency}\",\n  \"occurred_at\": \"{occurred_at}\"\n}", "conv_{lead_id}", true, "POST", "purchase", "Converted", "https://bipro2interface.sseku.com/api/candidate-tracker/conversions" }
-                });
+            // The default endpoint rows used to be inserted here. They now come from .env
+            // and are added at startup (TrackerEndpointService.AddMissingDefaults), so a new
+            // database starts empty. Databases that already ran this migration keep their rows.
 
             migrationBuilder.CreateIndex(
                 name: "IX_TrackerAttempts_TrackerEventId",

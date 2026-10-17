@@ -1,4 +1,3 @@
-using System.Net.Http.Headers;
 using System.Text;
 
 namespace MiniCrm.Api.Services;
@@ -10,18 +9,18 @@ public record TrackerResponse(int? StatusCode, string? Body, string? Error);
 // Sends one request to the tracker with the API key. It never throws for
 // network problems, so callers (the ping endpoint and TrackerEventSender) can store
 // or show the outcome.
-public class TrackerClient(HttpClient http, IConfiguration config)
+public class TrackerClient(HttpClient http, TrackerAuthService auth)
 {
     public async Task<TrackerResponse> Send(HttpMethod method, string url, string? jsonBody = null,
         CancellationToken cancellationToken = default)
     {
         using var request = new HttpRequestMessage(method, url);
 
-        // The key is read here, not logged or stored anywhere else.
-        // Without a key the tracker answers 401, which we pass on as is.
-        var apiKey = config["Tracker:ApiKey"];
-        if (!string.IsNullOrWhiteSpace(apiKey))
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+        // The shared auth header with the key filled in (settings page, or .env). It is never
+        // logged or saved with the attempt. The name and value were checked on save, so they can't
+        // break the request. Without a key the tracker answers 401, which we pass on as is.
+        if (await auth.CurrentHeader(cancellationToken) is { } header)
+            request.Headers.TryAddWithoutValidation(header.Key, header.Value);
 
         if (jsonBody is not null)
             request.Content = new StringContent(jsonBody, Encoding.UTF8, "application/json");

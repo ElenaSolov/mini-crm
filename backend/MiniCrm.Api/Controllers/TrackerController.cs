@@ -16,7 +16,7 @@ public class TrackerController(AppDbContext db, TrackerClient tracker) : Control
     public async Task<ActionResult<TrackerResponse>> Ping(CancellationToken cancellationToken)
     {
         var ping = await db.TrackerEndpoints
-            .SingleOrDefaultAsync(e => e.Name == DefaultEndpoints.PingName && e.IsActive, cancellationToken);
+            .SingleOrDefaultAsync(e => e.Name == TrackerDefaults.PingName && e.IsActive, cancellationToken);
         if (ping is null)
             return Problem(detail: "The ping endpoint is missing or turned off.", statusCode: StatusCodes.Status404NotFound);
 

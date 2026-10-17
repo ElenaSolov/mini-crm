@@ -1,13 +1,15 @@
 import { errorMessage } from '../../../utils/apiError';
-import { useGetEndpointsQuery, useGetMacrosQuery } from '../api/settingsApi';
+import { useGetEndpointsQuery, useGetMacrosQuery, useGetTrackerAuthQuery } from '../api/settingsApi';
 import ConnectionTest from './ConnectionTest';
 import EndpointEditor from './EndpointEditor';
 import InboundUrls from './InboundUrls';
+import TrackerAuthEditor from './TrackerAuthEditor';
 
 // The tracker settings: test the connection, and edit each endpoint's templates.
 export default function SettingsPage() {
   const endpoints = useGetEndpointsQuery();
   const macros = useGetMacrosQuery();
+  const auth = useGetTrackerAuthQuery();
 
   return (
     <main className="main settings">
@@ -34,6 +36,9 @@ export default function SettingsPage() {
           </p>
         </section>
       )}
+
+      {auth.error && <p className="error">{errorMessage(auth.error)}</p>}
+      {auth.data && <TrackerAuthEditor auth={auth.data} />}
 
       {endpoints.error && <p className="error">{errorMessage(endpoints.error)}</p>}
       {macros.error && <p className="error">{errorMessage(macros.error)}</p>}

@@ -1,22 +1,26 @@
 using System.Net;
 using Microsoft.Extensions.Configuration;
+using MiniCrm.Api.Data;
 using MiniCrm.Api.Services;
 using MiniCrm.Tests.Fakes;
 
 namespace MiniCrm.Tests.Unit;
 
-public class TrackerClientTests
+public class TrackerClientTests : IDisposable
 {
     private const string Url = "https://tracker.test/conversions";
 
     private readonly FakeTrackerHandler _tracker = new();
+    private readonly AppDbContext _db = TestData.InMemoryDb();
+
+    public void Dispose() => _db.Dispose();
 
     private TrackerClient Client(string? apiKey = "test-key")
     {
         var config = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?> { ["Tracker:ApiKey"] = apiKey })
             .Build();
-        return new TrackerClient(new HttpClient(_tracker), config);
+        return new TrackerClient(new HttpClient(_tracker), new TrackerAuthService(_db, TestData.Defaults(), config));
     }
 
     [Fact]
@@ -31,6 +35,35 @@ public class TrackerClientTests
         Assert.Equal(Url, request.Url);
         Assert.Equal("Bearer test-key", request.Authorization);
         Assert.Equal("""{"event_id":"conv_42"}""", request.Body);
+    }
+
+    [Fact]
+    public async Task Sends_the_key_in_a_custom_auth_header()
+    {
+        _tracker.Reply(HttpStatusCode.Created, """{"ok":true}""");
+
+        var auth = _db.TrackerAuthSettings.Single();
+        auth.HeaderName = "X-Api-Key";
+        auth.HeaderTemplate = "Key {api_key}";
+        await _db.SaveChangesAsync();
+
+        await Client().Send(HttpMethod.Post, Url, "{}");
+
+        var request = Assert.Single(_tracker.Requests);
+        Assert.Equal("Key test-key", request.Headers["X-Api-Key"]);
+        Assert.Null(request.Authorization);
+    }
+
+    [Fact]
+    public async Task Key_saved_in_settings_wins_over_the_env_key()
+    {
+        _tracker.Reply(HttpStatusCode.OK, """{"ok":true}""");
+        _db.TrackerAuthSettings.Single().ApiKey = "settings-key";
+        await _db.SaveChangesAsync();
+
+        await Client(apiKey: "env-key").Send(HttpMethod.Get, Url);
+
+        Assert.Equal("Bearer settings-key", Assert.Single(_tracker.Requests).Authorization);
     }
 
     [Fact]

@@ -4,8 +4,9 @@ using System.Text;
 
 namespace MiniCrm.Tests.Fakes;
 
-// What the app sent to the fake tracker.
-public record SentRequest(HttpMethod Method, string Url, string? Authorization, string? Body);
+// What the app sent to the fake tracker. Headers ignores upper/lower case in names, like HTTP.
+public record SentRequest(
+    HttpMethod Method, string Url, string? Authorization, string? Body, IReadOnlyDictionary<string, string> Headers);
 
 // Stands in for the real tracker, so tests never call it and never need the API key.
 // Each test queues the answers it wants; a request with no answer queued fails the test.
@@ -36,7 +37,8 @@ public class FakeTrackerHandler : HttpMessageHandler
     {
         var body = request.Content is null ? null : await request.Content.ReadAsStringAsync(cancellationToken);
         _requests.Enqueue(new SentRequest(request.Method, request.RequestUri!.ToString(),
-            request.Headers.Authorization?.ToString(), body));
+            request.Headers.Authorization?.ToString(), body,
+            request.Headers.ToDictionary(h => h.Key, h => string.Join(",", h.Value), StringComparer.OrdinalIgnoreCase)));
 
         if (!_answers.TryDequeue(out var answer))
             throw new InvalidOperationException($"The fake tracker has no answer queued for {request.RequestUri}.");

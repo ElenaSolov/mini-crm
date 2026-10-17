@@ -173,6 +173,30 @@ namespace MiniCrm.Api.Data.Migrations
                     b.ToTable("TrackerAttempts");
                 });
 
+            modelBuilder.Entity("MiniCrm.Api.Models.TrackerAuthSettings", b =>
+                {
+                    b.Property<int>("Id")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ApiKey")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<string>("HeaderName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("HeaderTemplate")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("TrackerAuthSettings");
+                });
+
             modelBuilder.Entity("MiniCrm.Api.Models.TrackerEndpoint", b =>
                 {
                     b.Property<int>("Id")
@@ -219,28 +243,6 @@ namespace MiniCrm.Api.Data.Migrations
                     b.HasIndex("TriggerStatus");
 
                     b.ToTable("TrackerEndpoints");
-
-                    b.HasData(
-                        new
-                        {
-                            Id = 1,
-                            EventIdTemplate = "",
-                            IsActive = true,
-                            Method = "GET",
-                            Name = "ping",
-                            UrlTemplate = "https://bipro2interface.sseku.com/api/candidate-tracker/ping"
-                        },
-                        new
-                        {
-                            Id = 2,
-                            BodyTemplate = "{\n  \"event_id\": \"{event_id}\",\n  \"event_name\": \"purchase\",\n  \"email\": \"{email}\",\n  \"phone\": \"{phone}\",\n  \"lead_id\": \"{lead_id}\",\n  \"amount\": {amount},\n  \"currency\": \"{currency}\",\n  \"occurred_at\": \"{occurred_at}\"\n}",
-                            EventIdTemplate = "conv_{lead_id}",
-                            IsActive = true,
-                            Method = "POST",
-                            Name = "purchase",
-                            TriggerStatus = "converted",
-                            UrlTemplate = "https://bipro2interface.sseku.com/api/candidate-tracker/conversions"
-                        });
                 });
 
             modelBuilder.Entity("MiniCrm.Api.Models.TrackerEvent", b =>

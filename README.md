@@ -40,7 +40,8 @@ requests.http            ready-made calls to the API
 cp .env.example .env
 ```
 
-Then set `Tracker__ApiKey` in `.env`.
+Then set `Tracker__ApiKey` in `.env`, or later on the **Tracker settings** page.
+The tracker URLs and auth header defaults are already filled in.
 
 ### 2. Database
 
@@ -56,7 +57,7 @@ docker run -d --name minicrm-sql -p 1433:1433 \
 ```
 
 The app creates the database and its starting data (lead statuses, tracker
-endpoints) when it starts.
+endpoints, auth header) when it starts.
 
 ### 3. Run the backend
 
@@ -65,7 +66,7 @@ dotnet run --project backend/MiniCrm.Api
 ```
 
 API: http://localhost:5080, Swagger: http://localhost:5080/swagger.
-If the key is missing, you'll see a warning in the log.
+If there is no key (in `.env` or saved on the settings page), you'll see a warning in the log.
 
 ### 4. Run the frontend
 
@@ -102,11 +103,29 @@ Real environment variables win over `.env`.
 
 | Variable | Required | What it is |
 |---|---|---|
-| `Tracker__ApiKey` | yes | Your tracker API key |
+| `Tracker__ApiKey` | yes, unless set on the settings page | Your tracker API key. A key saved on the settings page wins |
+| `Tracker__PingUrl` | yes | Default URL of the `ping` endpoint |
+| `Tracker__ConversionsUrl` | yes | Default URL of the `purchase` endpoint |
+| `Tracker__AuthHeaderName` | yes | Default auth header name for ping and purchase, e.g. `Authorization` |
+| `Tracker__AuthHeaderTemplate` | yes | Default auth header value, e.g. `'Bearer {api_key}'`. `{api_key}` is replaced with the key when a request is sent |
 | `ConnectionStrings__Default` | no | SQL Server connection string. Default: LocalDB (in `appsettings.json`) |
 | `MINICRM_TEST_DB` | no | Tests only. The database name must end with `_Tests` |
 
 ## Create a lead and trigger a conversion
+
+### From a website form (pixel or postback)
+
+The **Tracker settings** page has two ready URLs with the token already in them,
+plus examples to copy. Put one in the website's form. Each sent form creates a
+new lead (`new`, source `pixel` or `postback` unless the form sends its own).
+From there it's a normal lead. See [Lead capture](#lead-capture-from-a-website)
+for how it works.
+
+```bash
+# Take the token from GET /api/inbound/settings
+curl -s "http://localhost:5080/api/inbound/pixel.png?token=<token>&name=Ann&email=ann@example.com" -o pixel.png
+curl -s -X POST "http://localhost:5080/api/inbound/postback?token=<token>" -d name=Bob -d phone=%2B12025550123
+```
 
 ### In the UI
 
@@ -135,19 +154,7 @@ curl -s -X POST http://localhost:5080/api/leads/1/status \
 curl -s http://localhost:5080/api/leads/1/events
 ```
 
-### From a website form (pixel or postback)
 
-The **Tracker settings** page has two ready URLs with the token already in them,
-plus examples to copy. Put one in the website's form. Each sent form creates a
-new lead (`new`, source `pixel` or `postback` unless the form sends its own).
-From there it's a normal lead. See [Lead capture](#lead-capture-from-a-website)
-for how it works.
-
-```bash
-# Take the token from GET /api/inbound/settings
-curl -s "http://localhost:5080/api/inbound/pixel.png?token=<token>&name=Ann&email=ann@example.com" -o pixel.png
-curl -s -X POST "http://localhost:5080/api/inbound/postback?token=<token>" -d name=Bob -d phone=%2B12025550123
-```
 
 ### API overview
 
@@ -168,6 +175,10 @@ curl -s -X POST "http://localhost:5080/api/inbound/postback?token=<token>" -d na
 | POST | `/api/tracker/endpoints/{id}/preview` | Shows the request for a sample lead, without saving |
 | PUT | `/api/tracker/endpoints/{id}` | Saves the URL, body and `event_id` templates |
 | POST | `/api/tracker/endpoints/{id}/reset` | Back to the default templates |
+| GET | `/api/tracker/auth` | The shared auth header, and where the key comes from (never the key) |
+| PUT | `/api/tracker/auth` | Saves the auth header, and the key if one is sent |
+| POST | `/api/tracker/auth/reset` | Auth header back to the `.env` default (keeps the key) |
+| DELETE | `/api/tracker/auth/key` | Deletes the saved key, so `.env` is used again |
 | GET | `/api/inbound/settings` | The token and the fields the pixel and postback take |
 | PUT | `/api/inbound/token` | Set your own token (16–64 letters, digits, `-`, `_`) |
 | POST | `/api/inbound/token/generate` | New random token |
@@ -240,7 +251,7 @@ survive a restart because they live in the database. This is the task's
 ### What gets saved
 
 Every attempt: time, URL, request body, status code, response body or error.
-Headers are not saved, so the API key never ends up in the database. You can
+Headers are not saved, so the API key never ends up in the attempt log. You can
 see the attempts under the lead, on the Logs page, and in
 `GET /api/leads/{id}/events`.
 
@@ -260,6 +271,11 @@ The tracker URLs and request bodies are templates in the `TrackerEndpoints`
 table, with macros like `{email}` and `{amount}`. Values are escaped, so a name
 like `Ann "A" & B` can't break the request. `{amount}` is sent as a number.
 
+The default URLs come from `.env`. At startup the app adds an endpoint to the
+table only if it isn't there yet (a new database gets both). After that the
+table is used, and `.env` is only what **Reset to default** puts back. A missing
+or invalid default stops the app at startup with a clear message.
+
 The **Tracker settings** page edits them, with the macro list, a live preview,
 **Reset to default** and **Test connection**. Only the URL, body and `event_id`
 templates can change. Saving is refused for:
@@ -273,6 +289,27 @@ templates can change. Saving is refused for:
 
 An edit applies to new events and to **Convert again**, never to automatic
 retries.
+
+### Tracker auth (header and API key)
+
+Ping and purchase share one auth setting, in the `TrackerAuthSettings` table
+(one row, created at the first start from `.env`). The **Tracker auth** card on
+the settings page edits it:
+
+- **Header name and value**, e.g. `Authorization` + `Bearer {api_key}`, or
+  `X-Api-Key` + `{api_key}`. **Reset to default** puts the `.env` values back.
+- **API key.** A key saved here wins over `Tracker__ApiKey` in `.env`;
+  **Delete saved key** goes back to `.env`. The key is write-only: the API never
+  sends it back, the page only says where the key in use comes from, and the
+  preview shows `***`. An empty key field keeps the current key.
+
+Saving is refused for a header name that isn't one word of letters, digits and
+`-` (or is one .NET sets itself: `Host`, `Content-Type`, ...), a header value
+without `{api_key}`, with other macros or a line break, and a key with spaces or
+line breaks. `{api_key}` can't be used in URL or body templates.
+
+The header and key are read when each request is sent (they are not copied into
+the event), so a fixed key also fixes the retries of events already queued.
 
 ### Lead statuses in a table
 
@@ -291,10 +328,17 @@ database. No repository layer: services use the EF `DbContext` directly.
 
 ### Secrets
 
-- The API key lives only in `.env` (ignored by git) or a real environment variable.
-- `.env.example` is the committed template, with no values.
+- The API key lives in `.env` (ignored by git), a real environment variable, or,
+  if set on the settings page, in the `TrackerAuthSettings` table. It is never in
+  committed files and never sent back by the API.
+- **Known risk:** a key saved on the settings page is stored as **plain text**.
+  Anyone who can read the database (or a backup) can read the key, and anyone who
+  can open the settings page can replace it (the app has no login). A real product
+  would encrypt it (e.g. ASP.NET Data Protection) and limit the page to admins.
+- `.env.example` is the committed template, with no key (only the public tracker URLs).
 - `requests.http` calls only our API and never has the key.
-- Attempts never save headers, and HTTP client logs hide the `Authorization` header.
+- Attempts never save headers, and HTTP client logs hide every request header
+  (the auth header name can be changed).
 
 ### Lead capture from a website
 
@@ -346,4 +390,4 @@ These URLs are public, so:
 
 ## Proof against the real tracker
 
-Cannot be done without API key, everythig were reproduced on local envoirment 
+Cannot be done without API key, everythig were reproduced on local envoirment  

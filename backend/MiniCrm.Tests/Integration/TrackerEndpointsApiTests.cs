@@ -5,6 +5,7 @@ using MiniCrm.Api.Data;
 using MiniCrm.Api.Dtos;
 using MiniCrm.Api.Models;
 using MiniCrm.Api.Services;
+using MiniCrm.Tests.Fakes;
 
 namespace MiniCrm.Tests.Integration;
 
@@ -16,8 +17,8 @@ public class TrackerEndpointsApiTests(ApiFactory factory) : ApiTestBase(factory)
     private static object PurchaseTemplates(
         string? url = null, string? body = null, string? eventId = null) => new
     {
-        url_template = url ?? DefaultEndpoints.BaseUrl + "/conversions",
-        body_template = body ?? DefaultEndpoints.PurchaseBody,
+        url_template = url ?? TestData.ConversionsUrl,
+        body_template = body ?? TrackerDefaults.PurchaseBody,
         event_id_template = eventId ?? "conv_{lead_id}"
     };
 
@@ -25,15 +26,16 @@ public class TrackerEndpointsApiTests(ApiFactory factory) : ApiTestBase(factory)
         Client.PutAsJsonAsync($"/api/tracker/endpoints/{PurchaseId}", templates, Json);
 
     [Fact]
-    public async Task Lists_the_seeded_endpoints()
+    public async Task Lists_the_endpoints_added_from_the_env_defaults()
     {
         var endpoints = (await Client.GetFromJsonAsync<List<TrackerEndpointResponse>>("/api/tracker/endpoints", Json))!;
 
-        Assert.Equal([DefaultEndpoints.PingName, DefaultEndpoints.PurchaseName], endpoints.Select(e => e.Name));
+        Assert.Equal([TrackerDefaults.PingName, TrackerDefaults.PurchaseName], endpoints.Select(e => e.Name));
         var purchase = endpoints[1];
         Assert.Equal("POST", purchase.Method);
         Assert.Equal(LeadStatusNames.Converted, purchase.TriggerStatus);
         Assert.Equal("conv_{lead_id}", purchase.EventIdTemplate);
+        Assert.Equal(TestData.ConversionsUrl, purchase.UrlTemplate);
     }
 
     [Fact]
@@ -57,7 +59,7 @@ public class TrackerEndpointsApiTests(ApiFactory factory) : ApiTestBase(factory)
     [Fact]
     public async Task Missing_url_is_400()
     {
-        var response = await SavePurchase(new { body_template = DefaultEndpoints.PurchaseBody, event_id_template = "conv_{lead_id}" });
+        var response = await SavePurchase(new { body_template = TrackerDefaults.PurchaseBody, event_id_template = "conv_{lead_id}" });
 
         Assert.Equal(["url_template"], await ErrorFields(response));
     }
@@ -126,7 +128,7 @@ public class TrackerEndpointsApiTests(ApiFactory factory) : ApiTestBase(factory)
         await SendDueEvents();
 
         Assert.Equal(
-            [DefaultEndpoints.BaseUrl + "/conversions", "https://tracker.test/fixed"],
+            [TestData.ConversionsUrl, "https://tracker.test/fixed"],
             Factory.Tracker.Requests.Select(r => r.Url));
         var trackerEvent = Assert.Single(await GetEvents(lead.Id));
         Assert.Equal($"conv_{lead.Id}", trackerEvent.EventId); // the event_id never changes
@@ -141,8 +143,8 @@ public class TrackerEndpointsApiTests(ApiFactory factory) : ApiTestBase(factory)
         var response = await Client.PostAsync($"/api/tracker/endpoints/{PurchaseId}/reset", null);
 
         var purchase = await response.Content.ReadFromJsonAsync<TrackerEndpointResponse>(Json);
-        Assert.Equal(DefaultEndpoints.BaseUrl + "/conversions", purchase!.UrlTemplate);
+        Assert.Equal(TestData.ConversionsUrl, purchase!.UrlTemplate);
         Assert.Equal("conv_{lead_id}", purchase.EventIdTemplate);
-        Assert.Equal(DefaultEndpoints.PurchaseBody, purchase.BodyTemplate);
+        Assert.Equal(TrackerDefaults.PurchaseBody, purchase.BodyTemplate);
     }
 }

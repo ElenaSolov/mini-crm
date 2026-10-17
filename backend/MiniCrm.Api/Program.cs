@@ -40,12 +40,15 @@ builder.Services.AddScoped<TrackerEventQueue>();
 builder.Services.AddScoped<TrackerEventSender>();
 builder.Services.AddScoped<TrackerEventService>();
 builder.Services.AddScoped<TrackerEndpointService>();
+builder.Services.AddScoped<TrackerAuthService>();
+builder.Services.AddSingleton<TrackerDefaults>();
 builder.Services.AddScoped<InboundLeadService>();
 // Outbox worker: sends saved events in the background, with retries.
 builder.Services.AddHostedService<TrackerWorker>();
 // RedactLoggedHeaders: with Trace logging on, .NET would print the API key in the logs.
+// All headers, because the auth header name can be changed on the settings page.
 builder.Services.AddHttpClient<TrackerClient>(client => client.Timeout = TimeSpan.FromSeconds(10))
-    .RedactLoggedHeaders(["Authorization"]);
+    .RedactLoggedHeaders(_ => true);
 
 // The inbound URLs are public (they sit in the client's website), so each IP
 // gets a limit: 30 requests a minute, then 429.
@@ -59,19 +62,20 @@ builder.Services.AddRateLimiter(options =>
 
 var app = builder.Build();
 
-if (string.IsNullOrWhiteSpace(app.Configuration["Tracker:ApiKey"]))
-{
-    app.Logger.LogWarning(
-        "Tracker:ApiKey is not set. Add Tracker__ApiKey to .env, otherwise calls to the tracker will fail.");
-}
-
 // Apply EF migrations at startup: creates the database and tables if they don't exist,
 // so a reviewer only needs a connection string to run the app.
-// Then create the inbound token once, so the settings page always shows the pixel and postback URLs.
+// Then add the tracker endpoints and auth header from .env if the database doesn't have them yet,
+// and create the inbound token once, so the settings page always shows the pixel and postback URLs.
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     db.Database.Migrate();
+    scope.ServiceProvider.GetRequiredService<TrackerEndpointService>().AddMissingDefaults();
+    var trackerAuth = scope.ServiceProvider.GetRequiredService<TrackerAuthService>();
+    trackerAuth.EnsureSettings();
+    if ((await trackerAuth.Get()).KeySource == ApiKeySource.None)
+        app.Logger.LogWarning(
+            "No tracker API key. Set it on the settings page or as Tracker__ApiKey in .env, otherwise calls to the tracker will fail.");
     scope.ServiceProvider.GetRequiredService<InboundLeadService>().EnsureToken();
 }
 

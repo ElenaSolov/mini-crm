@@ -6,9 +6,9 @@ import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 // Tags tell RTK Query which cached answers to reload after a change:
 // "Lead" for lead data, "Events" for tracker events (one lead's, or { id: 'LIST' }
 // for the Logs page), "Endpoint" for the tracker endpoint templates, "Inbound"
-// for the pixel token on the settings page.
+// for the pixel token on the settings page, "Auth" for the tracker auth header and key.
 export const api = createApi({
   baseQuery: fetchBaseQuery({ baseUrl: '/api' }),
-  tagTypes: ['Lead', 'Events', 'Endpoint', 'Inbound'],
+  tagTypes: ['Lead', 'Events', 'Endpoint', 'Inbound', 'Auth'],
   endpoints: () => ({}),
 });

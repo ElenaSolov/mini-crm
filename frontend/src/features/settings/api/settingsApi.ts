@@ -5,6 +5,8 @@ import type {
   InboundSettings,
   MacroList,
   PingResult,
+  SaveTrackerAuth,
+  TrackerAuth,
   TrackerEndpoint,
 } from '../types';
 
@@ -32,6 +34,27 @@ export const settingsApi = api.injectEndpoints({
     resetEndpoint: build.mutation<TrackerEndpoint, number>({
       query: (id) => ({ url: `tracker/endpoints/${id}/reset`, method: 'POST' }),
       invalidatesTags: ['Endpoint'],
+    }),
+
+    getTrackerAuth: build.query<TrackerAuth, void>({
+      query: () => 'tracker/auth',
+      providesTags: ['Auth'],
+    }),
+
+    updateTrackerAuth: build.mutation<TrackerAuth, SaveTrackerAuth>({
+      query: (auth) => ({ url: 'tracker/auth', method: 'PUT', body: auth }),
+      invalidatesTags: ['Auth'],
+    }),
+
+    resetTrackerAuth: build.mutation<TrackerAuth, void>({
+      query: () => ({ url: 'tracker/auth/reset', method: 'POST' }),
+      invalidatesTags: ['Auth'],
+    }),
+
+    // After this the key from .env is used again.
+    clearTrackerKey: build.mutation<TrackerAuth, void>({
+      query: () => ({ url: 'tracker/auth/key', method: 'DELETE' }),
+      invalidatesTags: ['Auth'],
     }),
 
     getInboundSettings: build.query<InboundSettings, void>({
@@ -63,6 +86,10 @@ export const {
   usePreviewEndpointQuery,
   useUpdateEndpointMutation,
   useResetEndpointMutation,
+  useGetTrackerAuthQuery,
+  useUpdateTrackerAuthMutation,
+  useResetTrackerAuthMutation,
+  useClearTrackerKeyMutation,
   useGetInboundSettingsQuery,
   useSetInboundTokenMutation,
   useGenerateInboundTokenMutation,

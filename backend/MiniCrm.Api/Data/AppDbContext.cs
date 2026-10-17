@@ -11,6 +11,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<TrackerEvent> TrackerEvents => Set<TrackerEvent>();
     public DbSet<TrackerAttempt> TrackerAttempts => Set<TrackerAttempt>();
     public DbSet<InboundSettings> InboundSettings => Set<InboundSettings>();
+    public DbSet<TrackerAuthSettings> TrackerAuthSettings => Set<TrackerAuthSettings>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -45,7 +46,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             endpoint.HasOne<LeadStatus>().WithMany().HasForeignKey(e => e.TriggerStatus).OnDelete(DeleteBehavior.Restrict);
             endpoint.Property(e => e.UrlTemplate).HasMaxLength(2000);
             endpoint.Property(e => e.EventIdTemplate).HasMaxLength(128);
-            endpoint.HasData(DefaultEndpoints.All());
+            // No HasData: the defaults come from .env, so they are added at startup
+            // (TrackerEndpointService.AddMissingDefaults), not by a migration.
         });
 
         modelBuilder.Entity<TrackerEvent>(trackerEvent =>
@@ -79,6 +81,15 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             // Always row 1, set by the code, not an identity column.
             settings.Property(s => s.Id).ValueGeneratedNever();
             settings.Property(s => s.Token).HasMaxLength(Models.InboundSettings.MaxTokenLength);
+        });
+
+        modelBuilder.Entity<TrackerAuthSettings>(settings =>
+        {
+            // Always row 1, set by the code, not an identity column.
+            settings.Property(s => s.Id).ValueGeneratedNever();
+            settings.Property(s => s.HeaderName).HasMaxLength(Models.TrackerAuthSettings.MaxHeaderNameLength);
+            settings.Property(s => s.HeaderTemplate).HasMaxLength(Models.TrackerAuthSettings.MaxHeaderTemplateLength);
+            settings.Property(s => s.ApiKey).HasMaxLength(Models.TrackerAuthSettings.MaxApiKeyLength);
         });
     }
 }

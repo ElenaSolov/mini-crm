@@ -22,6 +22,14 @@ public class SaveTrackerEndpointRequest
     }
 
     public string EventIdTemplate { get => _eventIdTemplate; set => _eventIdTemplate = value?.Trim() ?? ""; }
+
+    // The endpoint's current values, e.g. to check the .env defaults with the same rules as a save.
+    public static SaveTrackerEndpointRequest From(TrackerEndpoint e) => new()
+    {
+        UrlTemplate = e.UrlTemplate,
+        BodyTemplate = e.BodyTemplate,
+        EventIdTemplate = e.EventIdTemplate
+    };
 }
 
 public record TrackerEndpointResponse(

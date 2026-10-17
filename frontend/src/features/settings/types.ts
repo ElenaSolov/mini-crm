@@ -26,6 +26,21 @@ export interface EndpointPreview {
   errors: Partial<Record<keyof EndpointTemplates, string>>;
 }
 
+// The auth header shared by ping and purchase. The key itself is never sent to the
+// browser: key_source only says where the key in use comes from.
+export interface TrackerAuth {
+  header_name: string;
+  header_template: string; // e.g. "Bearer {api_key}"
+  key_source: 'settings' | 'env' | 'none';
+}
+
+// What the auth card saves. An empty api_key keeps the current key.
+export interface SaveTrackerAuth {
+  header_name: string;
+  header_template: string;
+  api_key: string;
+}
+
 export interface MacroList {
   macros: string[];
   event_id_macros: string[];

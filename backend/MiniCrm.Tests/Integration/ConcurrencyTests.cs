@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using Microsoft.EntityFrameworkCore;
 using MiniCrm.Api.Dtos;
 
 namespace MiniCrm.Tests.Integration;
@@ -54,6 +55,26 @@ public class ConcurrencyTests(ApiFactory factory) : ApiTestBase(factory)
         var winner = purchase.UrlTemplate.Split('/').Last();
         Assert.Equal($$"""{"event_id":"{event_id}","n":{{winner}}}""", purchase.BodyTemplate);
         Assert.Equal($"conv{winner}_{{lead_id}}", purchase.EventIdTemplate);
+    }
+
+    // Same for the shared auth row: the header name and value always come from one save.
+    [Fact]
+    public async Task Parallel_auth_edits_leave_one_requests_header()
+    {
+        var responses = await Task.WhenAll(Enumerable.Range(0, ParallelRequests).Select(i =>
+            Client.PutAsJsonAsync("/api/tracker/auth", new
+            {
+                header_name = $"X-Key-{i}",
+                header_template = $"Key{i} {{api_key}}",
+                api_key = $"key-{i}"
+            }, Json)));
+
+        Assert.All(responses, r => Assert.Equal(HttpStatusCode.OK, r.StatusCode));
+        var auth = await Client.GetFromJsonAsync<TrackerAuthResponse>("/api/tracker/auth", Json);
+        var winner = auth!.HeaderName.Split('-').Last();
+        Assert.Equal($"Key{winner} {{api_key}}", auth.HeaderTemplate);
+        await WithDb(async db =>
+            Assert.Equal($"key-{winner}", (await db.TrackerAuthSettings.SingleAsync()).ApiKey));
     }
 
     [Fact]

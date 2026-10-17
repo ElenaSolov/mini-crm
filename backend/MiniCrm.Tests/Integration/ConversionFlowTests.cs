@@ -2,6 +2,7 @@ using System.Net;
 using System.Text.Json;
 using MiniCrm.Api.Data;
 using MiniCrm.Api.Models;
+using MiniCrm.Tests.Fakes;
 
 namespace MiniCrm.Tests.Integration;
 
@@ -25,7 +26,7 @@ public class ConversionFlowTests(ApiFactory factory) : ApiTestBase(factory)
         var trackerEvent = Assert.Single(await GetEvents(lead.Id));
         Assert.Equal($"conv_{lead.Id}", trackerEvent.EventId);
         Assert.Equal(TrackerEventStatus.Pending, trackerEvent.Status);
-        Assert.Equal(DefaultEndpoints.PurchaseName, trackerEvent.Endpoint);
+        Assert.Equal(TrackerDefaults.PurchaseName, trackerEvent.Endpoint);
     }
 
     // Step 2 of the test sequence in docs/Task.md: create a lead, convert it -> 201.
@@ -40,7 +41,7 @@ public class ConversionFlowTests(ApiFactory factory) : ApiTestBase(factory)
 
         var request = Assert.Single(Factory.Tracker.Requests);
         Assert.Equal(HttpMethod.Post, request.Method);
-        Assert.Equal(DefaultEndpoints.BaseUrl + "/conversions", request.Url);
+        Assert.Equal(TestData.ConversionsUrl, request.Url);
         Assert.Equal($"Bearer {ApiFactory.TestApiKey}", request.Authorization);
 
         var body = JsonDocument.Parse(request.Body!).RootElement;

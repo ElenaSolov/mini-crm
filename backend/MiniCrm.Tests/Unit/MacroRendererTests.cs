@@ -23,7 +23,7 @@ public class MacroRendererTests
     [Fact]
     public void Default_purchase_body_renders_the_tasks_json()
     {
-        var body = MacroRenderer.RenderBody(DefaultEndpoints.PurchaseBody, Values());
+        var body = MacroRenderer.RenderBody(TrackerDefaults.PurchaseBody, Values());
 
         var json = JsonDocument.Parse(body).RootElement;
         Assert.Equal("conv_42", json.GetProperty("event_id").GetString());

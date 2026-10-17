@@ -13,6 +13,7 @@ namespace MiniCrm.Tests.Integration;
 // Starts the real app (all middleware, controllers, validation) on a real SQL Server
 // test database. Only two things are swapped:
 //   - the tracker is a fake, so tests never call the real one or need the real key;
+//     its URLs and auth header come from TestData, not from .env;
 //   - the background worker is off, so each test sends events itself, when it wants.
 public class ApiFactory : WebApplicationFactory<Program>
 {
@@ -42,6 +43,8 @@ public class ApiFactory : WebApplicationFactory<Program>
         // Command-line level settings: they win over .env and appsettings.json.
         builder.UseSetting("ConnectionStrings:Default", ConnectionString);
         builder.UseSetting("Tracker:ApiKey", TestApiKey);
+        foreach (var (key, value) in TestData.TrackerSettings)
+            builder.UseSetting(key, value);
         builder.ConfigureTestServices(services =>
         {
             var worker = services.Single(d => d.ImplementationType == typeof(TrackerWorker));
@@ -68,14 +71,20 @@ public class ApiFactory : WebApplicationFactory<Program>
         var defaultStatuses = DefaultLeadStatuses.All().Select(s => s.Name).ToList();
         await db.LeadStatuses.Where(s => !defaultStatuses.Contains(s.Name)).ExecuteDeleteAsync();
 
-        // A settings test may have edited the templates.
-        foreach (var defaults in DefaultEndpoints.All())
+        // A settings test may have edited the templates or the auth settings.
+        foreach (var defaults in TestData.Defaults().All())
         {
-            await db.TrackerEndpoints.Where(e => e.Id == defaults.Id).ExecuteUpdateAsync(s => s
+            await db.TrackerEndpoints.Where(e => e.Name == defaults.Name).ExecuteUpdateAsync(s => s
                 .SetProperty(e => e.UrlTemplate, defaults.UrlTemplate)
                 .SetProperty(e => e.BodyTemplate, defaults.BodyTemplate)
                 .SetProperty(e => e.EventIdTemplate, defaults.EventIdTemplate));
         }
+
+        var auth = TestData.Defaults().Auth();
+        await db.TrackerAuthSettings.ExecuteUpdateAsync(s => s
+            .SetProperty(a => a.HeaderName, auth.HeaderName)
+            .SetProperty(a => a.HeaderTemplate, auth.HeaderTemplate)
+            .SetProperty(a => a.ApiKey, (string?)null));
 
         Tracker.Reset();
     }
